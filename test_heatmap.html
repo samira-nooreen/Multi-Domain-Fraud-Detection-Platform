@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heatmap Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #heatmap-container {
+            height: 500px;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        .heatmap-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e6e6e6;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .control-btn.active {
+            background: #8876f8;
+            border-color: #8876f8;
+        }
+        
+        .control-btn:hover {
+            background: rgba(136, 118, 248, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <h1>Heatmap Test Page</h1>
+    
+    <div class="heatmap-controls">
+        <button class="control-btn active" onclick="filterHeatmap('all')">All Fraud Types</button>
+        <button class="control-btn" onclick="filterHeatmap('upi')">UPI Fraud</button>
+        <button class="control-btn" onclick="filterHeatmap('credit')">Credit Card</button>
+        <button class="control-btn" onclick="filterHeatmap('phishing')">Phishing</button>
+        <button class="control-btn" onclick="filterHeatmap('identity')">Identity Theft</button>
+    </div>
+    
+    <div id="heatmap-container"></div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Test data based on our database results
+        let fraudHotspots = [
+            { 
+                city: "Fake News Detection", 
+                coords: [22.9734, 78.6569], 
+                level: "critical", 
+                cases: 2,
+                types: { upi: 0, credit: 0, phishing: 0, identity: 0 }
+            },
+            { 
+                city: "Phishing URL", 
+                coords: [22.9734, 78.6569], 
+                level: "critical", 
+                cases: 3,
+                types: { upi: 0, credit: 0, phishing: 3, identity: 0 }
+            },
+            { 
+                city: "Loan Default", 
+                coords: [22.9734, 78.6569], 
+                level: "critical", 
+                cases: 1,
+                types: { upi: 0, credit: 0, phishing: 0, identity: 0 }
+            },
+            { 
+                city: "Document Forgery", 
+                coords: [22.9734, 78.6569], 
+                level: "low", 
+                cases: 1,
+                types: { upi: 0, credit: 0, phishing: 0, identity: 0 }
+            },
+            { 
+                city: "Spam Email", 
+                coords: [22.9734, 78.6569], 
+                level: "critical", 
+                cases: 2,
+                types: { upi: 0, credit: 0, phishing: 0, identity: 0 }
+            },
+            { 
+                city: "UPI Fraud Detection", 
+                coords: [22.9734, 78.6569], 
+                level: "low", 
+                cases: 1,
+                types: { upi: 1, credit: 0, phishing: 0, identity: 0 }
+            }
+        ];
+        
+        let map;
+        let markers = [];
+        let currentFilter = 'all';
+        
+        const levelColors = {
+            critical: "#d50000",
+            high: "#ff6f00",
+            medium: "#f9a825",
+            low: "#2e7d32"
+        };
+        
+        function initializeHeatmap() {
+            if (map) {
+                map.remove();
+            }
+            
+            // Initialize map
+            map = L.map("heatmap-container", {
+                center: [22.9734, 78.6569],
+                zoom: 5,
+                zoomControl: true,
+                attributionControl: false
+            });
+            
+            // Add satellite tiles
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 18,
+                attribution: '© Esri'
+            }).addTo(map);
+            
+            // Add labels overlay
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Add markers
+            updateHeatmapMarkers();
+        }
+        
+        function updateHeatmapMarkers() {
+            // Clear existing markers
+            markers.forEach(marker => marker.remove());
+            markers = [];
+            
+            // Filter hotspots based on current filter
+            let filteredHotspots = [];
+            
+            if (currentFilter === 'all') {
+                filteredHotspots = fraudHotspots.map(h => ({ ...h })); // Clone to avoid mutating original
+            } else {
+                // Filter by fraud type
+                filteredHotspots = fraudHotspots.filter(h => {
+                    if (currentFilter === 'upi') return h.city.includes('UPI');
+                    if (currentFilter === 'credit') return h.city.includes('Credit');
+                    if (currentFilter === 'phishing') return h.city.includes('Phishing');
+                    if (currentFilter === 'identity') return h.city.includes('Profile') || h.city.includes('Identity');
+                    return true;
+                });
+                
+                // Adjust levels based on filtered counts
+                filteredHotspots = filteredHotspots.map(h => {
+                    // Recalculate level based on case count
+                    let newLevel = 'low';
+                    if (h.cases > 100) newLevel = 'critical';
+                    else if (h.cases > 50) newLevel = 'high';
+                    else if (h.cases > 20) newLevel = 'medium';
+                    
+                    return {
+                        ...h,
+                        level: newLevel
+                    };
+                });
+            }
+            
+            // Add new markers
+            filteredHotspots.forEach(h => {
+                // Use a unique ID for the gradient to prevent ID conflicts
+                const gradientId = `grad-${h.city.replace(/\s+/g, '-')}-${currentFilter}`;
+                
+                const icon = L.divIcon({
+                    className: 'fraud-marker',
+                    html: `
+                <div style="
+                  position: relative;
+                  width: 24px;
+                  height: 32px;
+                  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
+                ">
+                  <svg width="24" height="32" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:${levelColors[h.level]};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${levelColors[h.level]}dd;stop-opacity:1" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M16 0 C7.2 0 0 7.2 0 16 C0 24 16 42 16 42 C16 42 32 24 32 16 C32 7.2 24.8 0 16 0 Z" 
+                          fill="url(#${gradientId})" 
+                          stroke="white" 
+                          stroke-width="1.5"/>
+                    <circle cx="16" cy="16" r="6" fill="white" opacity="0.9"/>
+                    <circle cx="16" cy="16" r="4" fill="${levelColors[h.level]}"/>
+                  </svg>
+                </div>
+              `,
+                    iconSize: [24, 32],
+                    iconAnchor: [12, 32],
+                    popupAnchor: [0, -32]
+                });
+                
+                const marker = L.marker(h.coords, { icon: icon }).addTo(map);
+                
+                const typeLabel = currentFilter === 'all' ? 'Total Cases' :
+                    currentFilter === 'upi' ? 'UPI Fraud Cases' :
+                        currentFilter === 'credit' ? 'Credit Card Cases' :
+                            currentFilter === 'phishing' ? 'Phishing Cases' :
+                                currentFilter === 'identity' ? 'Identity Theft Cases' : 'Cases';
+                
+                marker.bindPopup(`
+              <div style="padding: 10px; font-family: Arial, sans-serif; min-width: 150px;">
+                <h3 style="margin: 0 0 8px 0; color: ${levelColors[h.level]}; font-size: 16px;">${h.city}</h3>
+                <p style="margin: 4px 0;"><strong>Risk Level:</strong> <span style="color: ${levelColors[h.level]}; text-transform: uppercase; font-weight: bold;">${h.level}</span></p>
+                <p style="margin: 4px 0;"><strong>${typeLabel}:</strong> ${h.cases}</p>
+              </div>
+            `);
+                
+                markers.push(marker);
+            });
+            
+            // Update button counts
+            updateButtonCounts();
+        }
+        
+        function updateButtonCounts() {
+            // Calculate totals
+            const totalAll = fraudHotspots.reduce((sum, h) => sum + h.cases, 0);
+            
+            const types = {
+                'upi': 'UPI Fraud',
+                'credit': 'Credit Card',
+                'phishing': 'Phishing',
+                'identity': 'Identity Theft'
+            };
+            
+            // Update All button
+            const allBtn = document.querySelector("button[onclick=\"filterHeatmap('all')\"]");
+            if (allBtn) {
+                allBtn.innerHTML = `All Fraud Types <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 8px;">${totalAll.toLocaleString()}</span>`;
+            }
+            
+            // Update type buttons
+            Object.keys(types).forEach(type => {
+                // Count cases by type from the hotspots data
+                let total = 0;
+                fraudHotspots.forEach(h => {
+                    if (type === 'upi' && h.city.includes('UPI')) total += h.cases;
+                    else if (type === 'credit' && h.city.includes('Credit')) total += h.cases;
+                    else if (type === 'phishing' && h.city.includes('Phishing')) total += h.cases;
+                    else if (type === 'identity' && (h.city.includes('Profile') || h.city.includes('Identity'))) total += h.cases;
+                });
+                
+                const btn = document.querySelector(`button[onclick=\"filterHeatmap('${type}')\"]`);
+                if (btn) {
+                    btn.innerHTML = `${types[type]} <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-left: 8px;">${total.toLocaleString()}</span>`;
+                }
+            });
+        }
+        
+        function filterHeatmap(type) {
+            currentFilter = type;
+            
+            // Update button states
+            document.querySelectorAll('.heatmap-controls .control-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            // We need to find the button again because innerHTML update might have replaced the element reference or we need to target by onclick since 'event.target' might be the span now
+            const btn = document.querySelector(`button[onclick="filterHeatmap('${type}')"]`);
+            if (btn) btn.classList.add('active');
+            
+            // Update markers
+            updateHeatmapMarkers();
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeHeatmap();
+        });
+    </script>
+</body>
+</html>

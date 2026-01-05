@@ -1,0 +1,80 @@
+/**
+ * MDFDP Global Color Scheme
+ * Consistent colors across all pages
+ */
+
+:root {
+    /* Primary Colors - Enhanced with Metaverse Neon Palette */
+    --primary-purple: #8876f8;
+    --primary-purple-dark: #7059d2;
+    --primary-purple-light: #c9baff;
+    --primary-purple-lighter: #dabfff;
+
+    /* Metaverse Neon Colors */
+    --neon-pink: #ff0a78;
+    --neon-magenta: #ff38a9;
+    --neon-cyan: #00e5ff;
+    --neon-turquoise: #27dcee;
+    --neon-purple: #b277ff;
+    --neon-blue: #4da8ff;
+
+    /* Background Colors */
+    --bg-black: #000000;
+    --bg-dark: #0d0d0f;
+    --bg-dark-deep: #050508;
+    --bg-card: #14141b;
+    --bg-card-hover: #1a1a23;
+    --bg-secondary: #20202b;
+    --bg-tertiary: #232336;
+
+    /* Text Colors */
+    --text-primary: #ffffff;
+    --text-secondary: #e6e6e6;
+    --text-muted: #b7b3c9;
+    --text-light: #c8c8ee;
+    --text-dark: #8d8dbb;
+
+    /* Accent Colors */
+    --accent-pink: #ff38a9;
+    --accent-pink-bright: #ff0a78;
+    --accent-orange: #fa803e;
+    --accent-purple: #b277ff;
+    --accent-blue: #27dcee;
+    --accent-cyan: #00e5ff;
+
+    /* Status Colors */
+    --status-critical: #fa395f;
+    --status-high: #fc8d26;
+    --status-medium: #fcea26;
+    --status-low: #22d168;
+
+    /* Border Colors */
+    --border-dark: #1a1a23;
+    --border-medium: #29293a;
+    --border-neon-pink: rgba(255, 10, 120, 0.5);
+    --border-neon-cyan: rgba(0, 229, 255, 0.5);
+
+    /* Gradients - Metaverse Style */
+    --gradient-primary: linear-gradient(180deg, #8876f870 0%, #1a143070 100%);
+    --gradient-button: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+    --gradient-neon-pink: linear-gradient(135deg, #ff0a78 0%, #ff38a9 100%);
+    --gradient-neon-cyan: linear-gradient(135deg, #00e5ff 0%, #27dcee 100%);
+    --gradient-neon-purple: linear-gradient(135deg, #b277ff 0%, #8876f8 100%);
+    --gradient-metaverse: linear-gradient(135deg, #ff0a78 0%, #b277ff 50%, #00e5ff 100%);
+    --gradient-hero: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.9) 100%);
+
+    /* Shadows - Enhanced with Neon Glow */
+    --shadow-card: 0 2px 18px #0006;
+    --shadow-glow: 0 2px 24px 0 #8876f860;
+    --shadow-button: 0 2px 20px 0 #c9baff90;
+    --shadow-neon-pink: 0 0 30px rgba(255, 10, 120, 0.6), 0 0 60px rgba(255, 10, 120, 0.3);
+    --shadow-neon-cyan: 0 0 30px rgba(0, 229, 255, 0.6), 0 0 60px rgba(0, 229, 255, 0.3);
+    --shadow-neon-purple: 0 0 30px rgba(178, 119, 255, 0.6), 0 0 60px rgba(178, 119, 255, 0.3);
+    --shadow-ring: 0 0 40px rgba(255, 10, 120, 0.4), 0 0 80px rgba(0, 229, 255, 0.3), 0 0 120px rgba(178, 119, 255, 0.2);
+}
+
+/* Apply to body */
+body {
+    background: var(--bg-black);
+    color: var(--text-secondary);
+}

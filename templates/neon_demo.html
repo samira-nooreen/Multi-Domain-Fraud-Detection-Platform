@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Effects Demo - Metaverse Style</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/colors.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neon-effects.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-black);
+            color: var(--text-secondary);
+            padding: 40px 20px;
+        }
+
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .demo-section {
+            margin-bottom: 80px;
+        }
+
+        .demo-title {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: var(--gradient-metaverse);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .demo-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: var(--neon-cyan);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .demo-item {
+            background: rgba(20, 20, 27, 0.5);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .demo-item h4 {
+            color: var(--neon-purple);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .demo-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .demo-text-samples {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .demo-text-samples h2 {
+            font-size: 2rem;
+        }
+
+        .demo-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .hero-demo {
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+            margin-bottom: 40px;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--neon-cyan);
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .ring-demo {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 40px;
+        }
+
+        .ring-sample {
+            width: 150px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="demo-container">
+        <!-- Hero Section -->
+        <h1 class="demo-title">Neon Effects Showcase</h1>
+        <p class="demo-subtitle">Metaverse-Inspired Colors & Animations</p>
+
+        <div class="hero-demo bg-neon-gradient">
+            <div style="text-align: center; z-index: 10; position: relative;">
+                <h1 class="neon-text-pink" style="font-size: 3rem; margin-bottom: 20px;">Welcome to the Future</h1>
+                <p style="font-size: 1.2rem; color: white; margin-bottom: 30px;">Experience stunning neon aesthetics</p>
+                <button class="btn-neon-cyan">Get Started</button>
+            </div>
+        </div>
+
+        <!-- Neon Buttons Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Neon Buttons</h2>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <h4>Pink Neon Button</h4>
+                    <button class="btn-neon-pink">Click Me!</button>
+                    <div class="code-block">
+                        &lt;button class="btn-neon-pink"&gt;Click Me!&lt;/button&gt;
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <h4>Cyan Neon Button</h4>
+                    <button class="btn-neon-cyan">Explore</button>
+                    <div class="code-block">
+                        &lt;button class="btn-neon-cyan"&gt;Explore&lt;/button&gt;
+                    </div>
+                </div>
+
+                <div class="demo-item">
+                    <h4>Purple Neon Button</h4>
+                    <button class="btn-neon-purple">Get Started</button>
+                    <div class="code-block">
+                        &lt;button class="btn-neon-purple"&gt;Get Started&lt;/button&gt;
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Neon Text Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Neon Glow Text</h2>
+            <div class="demo-text-samples">
+                <h2 class="neon-text-pink">This is Pink Neon Text</h2>
+                <h2 class="neon-text-cyan">This is Cyan Neon Text</h2>
+                <h2 class="neon-text-purple">This is Purple Neon Text</h2>
+            </div>
+            <div class="code-block">
+                &lt;h2 class="neon-text-pink"&gt;This is Pink Neon Text&lt;/h2&gt;
+                &lt;h2 class="neon-text-cyan"&gt;This is Cyan Neon Text&lt;/h2&gt;
+                &lt;h2 class="neon-text-purple"&gt;This is Purple Neon Text&lt;/h2&gt;
+            </div>
+        </div>
+
+        <!-- Neon Rings Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Neon Rings</h2>
+            <div class="ring-demo">
+                <div class="neon-ring-pink ring-sample">
+                    <span style="color: var(--neon-pink); font-size: 1.2rem;">PINK</span>
+                </div>
+                <div class="neon-ring-cyan ring-sample">
+                    <span style="color: var(--neon-cyan); font-size: 1.2rem;">CYAN</span>
+                </div>
+                <div class="neon-ring-purple ring-sample">
+                    <span style="color: var(--neon-purple); font-size: 1.2rem;">PURPLE</span>
+                </div>
+            </div>
+            <div class="code-block">
+                &lt;div class="neon-ring-pink ring-sample"&gt;Content&lt;/div&gt;
+                &lt;div class="neon-ring-cyan ring-sample"&gt;Content&lt;/div&gt;
+                &lt;div class="neon-ring-purple ring-sample"&gt;Content&lt;/div&gt;
+            </div>
+        </div>
+
+        <!-- Neon Cards Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Neon Cards</h2>
+            <div class="demo-grid">
+                <div class="card-neon">
+                    <h3 style="color: var(--neon-pink); margin-bottom: 15px;">Neon Card</h3>
+                    <p>Hover over this card to see the animated neon border effect. Beautiful gradient animations make
+                        your UI stand out.</p>
+                </div>
+
+                <div class="glass-neon-pink">
+                    <h3 style="color: var(--neon-pink); margin-bottom: 15px;">Glass Pink</h3>
+                    <p>Glassmorphism effect with pink neon accents. Perfect for creating depth and modern aesthetics.
+                    </p>
+                </div>
+
+                <div class="glass-neon-cyan">
+                    <h3 style="color: var(--neon-cyan); margin-bottom: 15px;">Glass Cyan</h3>
+                    <p>Glassmorphism with cyan neon glow. Combines transparency with vibrant neon effects.</p>
+                </div>
+            </div>
+            <div class="code-block">
+                &lt;div class="card-neon"&gt;...&lt;/div&gt;
+                &lt;div class="glass-neon-pink"&gt;...&lt;/div&gt;
+                &lt;div class="glass-neon-cyan"&gt;...&lt;/div&gt;
+            </div>
+        </div>
+
+        <!-- Neon Badges Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Neon Badges</h2>
+            <div class="demo-badges">
+                <span class="badge-neon-pink">HOT</span>
+                <span class="badge-neon-pink">NEW</span>
+                <span class="badge-neon-pink">FEATURED</span>
+                <span class="badge-neon-cyan">VERIFIED</span>
+                <span class="badge-neon-cyan">PREMIUM</span>
+                <span class="badge-neon-purple">TRENDING</span>
+                <span class="badge-neon-purple">EXCLUSIVE</span>
+            </div>
+            <div class="code-block">
+                &lt;span class="badge-neon-pink"&gt;HOT&lt;/span&gt;
+                &lt;span class="badge-neon-cyan"&gt;VERIFIED&lt;/span&gt;
+                &lt;span class="badge-neon-purple"&gt;TRENDING&lt;/span&gt;
+            </div>
+        </div>
+
+        <!-- Animated Border Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Animated Neon Border</h2>
+            <div class="neon-border-animated" style="padding: 40px; text-align: center;">
+                <div class="neon-border-content">
+                    <h3 style="color: var(--neon-pink); margin-bottom: 15px; font-size: 1.8rem;">Rotating Border
+                        Animation</h3>
+                    <p style="font-size: 1.1rem;">This border continuously rotates with a gradient of neon colors.
+                        Perfect for highlighting special content or CTAs.</p>
+                    <button class="btn-neon-purple" style="margin-top: 20px;">Learn More</button>
+                </div>
+            </div>
+            <div class="code-block">
+                &lt;div class="neon-border-animated"&gt;
+                &lt;div class="neon-border-content"&gt;
+                Your content here
+                &lt;/div&gt;
+                &lt;/div&gt;
+            </div>
+        </div>
+
+        <!-- Neon Divider -->
+        <hr class="neon-divider">
+
+        <!-- Color Variables Section -->
+        <div class="demo-section">
+            <h2 class="section-title">Available CSS Variables</h2>
+            <div class="demo-grid">
+                <div class="demo-item">
+                    <h4>Neon Colors</h4>
+                    <ul style="line-height: 2;">
+                        <li><code>--neon-pink</code>: #ff0a78</li>
+                        <li><code>--neon-magenta</code>: #ff38a9</li>
+                        <li><code>--neon-cyan</code>: #00e5ff</li>
+                        <li><code>--neon-turquoise</code>: #27dcee</li>
+                        <li><code>--neon-purple</code>: #b277ff</li>
+                        <li><code>--neon-blue</code>: #4da8ff</li>
+                    </ul>
+                </div>
+
+                <div class="demo-item">
+                    <h4>Neon Gradients</h4>
+                    <ul style="line-height: 2;">
+                        <li><code>--gradient-neon-pink</code></li>
+                        <li><code>--gradient-neon-cyan</code></li>
+                        <li><code>--gradient-neon-purple</code></li>
+                        <li><code>--gradient-metaverse</code></li>
+                    </ul>
+                </div>
+
+                <div class="demo-item">
+                    <h4>Neon Shadows</h4>
+                    <ul style="line-height: 2;">
+                        <li><code>--shadow-neon-pink</code></li>
+                        <li><code>--shadow-neon-cyan</code></li>
+                        <li><code>--shadow-neon-purple</code></li>
+                        <li><code>--shadow-ring</code></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Guide -->
+        <div class="demo-section">
+            <h2 class="section-title">Quick Start Guide</h2>
+            <div class="demo-item">
+                <h4>1. Include the CSS files in your HTML:</h4>
+                <div class="code-block">
+                    &lt;link rel="stylesheet" href="static/css/colors.css"&gt;
+                    &lt;link rel="stylesheet" href="static/css/neon-effects.css"&gt;
+                </div>
+
+                <h4 style="margin-top: 30px;">2. Use the pre-made classes:</h4>
+                <div class="code-block">
+                    &lt;!-- Buttons --&gt;
+                    &lt;button class="btn-neon-pink"&gt;Pink Button&lt;/button&gt;
+                    &lt;button class="btn-neon-cyan"&gt;Cyan Button&lt;/button&gt;
+
+                    &lt;!-- Text --&gt;
+                    &lt;h1 class="neon-text-purple"&gt;Glowing Text&lt;/h1&gt;
+
+                    &lt;!-- Cards --&gt;
+                    &lt;div class="card-neon"&gt;Content&lt;/div&gt;
+                    &lt;div class="glass-neon-pink"&gt;Content&lt;/div&gt;
+
+                    &lt;!-- Badges --&gt;
+                    &lt;span class="badge-neon-cyan"&gt;Badge&lt;/span&gt;
+                </div>
+
+                <h4 style="margin-top: 30px;">3. Or use CSS variables directly:</h4>
+                <div class="code-block">
+                    .my-element {
+                    background: var(--gradient-metaverse);
+                    color: var(--neon-pink);
+                    box-shadow: var(--shadow-neon-cyan);
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

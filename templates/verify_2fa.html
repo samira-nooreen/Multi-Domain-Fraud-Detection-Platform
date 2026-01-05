@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Factor Authentication - MDFDP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-card {
+            background: #14141b;
+            border-radius: 20px;
+            padding: 50px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid #1a1a23;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .auth-header .shield-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-header .shield-icon i {
+            font-size: 30px;
+            color: white;
+        }
+
+        .auth-header h1 {
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .auth-header p {
+            color: #b7b3c9;
+            font-size: 1rem;
+        }
+
+        .qr-section {
+            background: #0d0d0f;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            border: 2px solid #29293a;
+        }
+
+        .qr-section img {
+            max-width: 250px;
+            margin: 20px auto;
+            display: block;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .qr-section .secret-key {
+            background: #14141b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            color: #8876f8;
+            font-size: 1.1rem;
+            word-break: break-all;
+        }
+
+        .qr-section p {
+            color: #b7b3c9;
+            margin-bottom: 10px;
+        }
+
+        .auth-form .form-group {
+            margin-bottom: 25px;
+        }
+
+        .auth-form label {
+            display: block;
+            margin-bottom: 10px;
+            color: #e6e6e6;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 15px 18px;
+            border: 2px solid #29293a;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            background: #0d0d0f;
+            color: #e6e6e6;
+            transition: all 0.3s ease;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: 600;
+        }
+
+        .auth-form input:focus {
+            outline: none;
+            border-color: #8876f8;
+            box-shadow: 0 0 0 3px rgba(136, 118, 248, 0.15);
+        }
+
+        .auth-form .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .auth-form .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(136, 118, 248, 0.4);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        .alert-error {
+            background: rgba(235, 51, 73, 0.15);
+            border: 1px solid rgba(235, 51, 73, 0.3);
+            color: #ff6b6b;
+        }
+
+        .alert-info {
+            background: rgba(136, 118, 248, 0.15);
+            border: 1px solid rgba(136, 118, 248, 0.3);
+            color: #8876f8;
+        }
+
+        .instructions {
+            background: #0d0d0f;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 4px solid #8876f8;
+        }
+
+        .instructions h3 {
+            color: #8876f8;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .instructions ol {
+            color: #b7b3c9;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="shield-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h1>Two-Factor Authentication</h1>
+                <p>Secure your account with 2FA</p>
+            </div>
+
+            {% if error %}
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i> {{ error }}
+            </div>
+            {% endif %}
+
+            {% if setup_mode %}
+            <div class="instructions">
+                <h3><i class="fas fa-info-circle"></i> Setup Instructions</h3>
+                <ol>
+                    <li>Download an authenticator app (Google Authenticator, Authy, etc.)</li>
+                    <li>Scan the QR code below with your app</li>
+                    <li>Or manually enter the secret key</li>
+                    <li>Enter the 6-digit code from your app to verify</li>
+                </ol>
+            </div>
+
+            <div class="qr-section">
+                <p><strong>Scan this QR Code:</strong></p>
+                <img src="{{ qr_code }}" alt="QR Code">
+                <p><strong>Or enter this secret key manually:</strong></p>
+                <div class="secret-key">{{ secret_key }}</div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-mobile-alt"></i> Enter the 6-digit code from your authenticator app
+            </div>
+            {% endif %}
+
+            <form class="auth-form" method="POST" action="/verify_2fa">
+                <div class="form-group">
+                    <label for="code">Authentication Code</label>
+                    <input type="text" id="code" name="code" required placeholder="000000" maxlength="6"
+                        pattern="[0-9]{6}">
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="fas fa-check"></i> Verify Code
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Dashboard - MDFDP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #000000 0%, #0d0d0f 50%, #14141b 100%);
+            color: #e6e6e6;
+            min-height: 100vh;
+        }
+
+        .back-btn {
+            background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #8876f8 0%, #c9baff 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .page-header p {
+            font-size: 1.2rem;
+            color: #b7b3c9;
+        }
+
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .security-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .security-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(255, 23, 68, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .card-icon.green {
+            background: rgba(46, 125, 50, 0.2);
+            color: #66bb6a;
+        }
+
+        .card-icon.yellow {
+            background: rgba(249, 168, 37, 0.2);
+            color: #ffc107;
+        }
+
+        .card-icon.orange {
+            background: rgba(255, 111, 0, 0.2);
+            color: #ff9800;
+        }
+
+        .card-icon.red {
+            background: rgba(213, 0, 0, 0.2);
+            color: #ff5252;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .card-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-label {
+            color: #b7b3c9;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active {
+            background: rgba(46, 125, 50, 0.2);
+            color: #66bb6a;
+        }
+
+        .status-badge.warning {
+            background: rgba(249, 168, 37, 0.2);
+            color: #ffc107;
+        }
+
+        .status-badge.critical {
+            background: rgba(213, 0, 0, 0.2);
+            color: #ff5252;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .feature-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: 0.4s;
+            border-radius: 26px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(24px);
+        }
+
+        .threat-list {
+            list-style: none;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .threat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid;
+        }
+
+        .threat-item.critical {
+            border-color: #7059d2;
+        }
+
+        .threat-item.high {
+            border-color: #ff6f00;
+        }
+
+        .threat-item.medium {
+            border-color: #f9a825;
+        }
+
+        .threat-item.low {
+            border-color: #2e7d32;
+        }
+
+        .threat-time {
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            .security-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .page-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/" class="navbar-logo">
+            <div class="shield-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                </svg>
+            </div>
+            <div class="navbar-logo-text">
+                Multi-Domain Fraud Detection <br>
+                <span style="font-weight: 700;">Platform (MDFDP)</span>
+            </div>
+        </a>
+
+        <ul class="navbar-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/analytics">Analytics</a></li>
+            <li><a href="/security">Security</a></li>
+            <li><a href="#report-fraud">Report</a></li>
+            <li><a href="#">Contact</a></li>
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+
+        <a href="/profile" class="navbar-btn"><i class="fas fa-user"></i> Profile</a>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>🔐 Security Dashboard</h1>
+            <p>Enterprise-grade security monitoring and threat detection</p>
+        </div>
+
+        <!-- Security Overview Grid -->
+        <div class="security-grid">
+            <!-- Security Score -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon green">
+                        <i class="fas fa-shield-check"></i>
+                    </div>
+                    <div>
+                        <div class="card-title">Security Score</div>
+                        <span class="status-badge active">Excellent</span>
+                    </div>
+                </div>
+                <div class="card-value" style="color: #66bb6a;">98/100</div>
+                <div class="card-label">Overall security posture</div>
+                <div class="progress-bar">
+                    <div class="progress-fill"
+                        style="width: 98%; background: linear-gradient(135deg, #66bb6a 0%, #2e7d32 100%);"></div>
+                </div>
+            </div>
+
+            <!-- Active Sessions -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon yellow">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div>
+                        <div class="card-title">Active Sessions</div>
+                        <span class="status-badge warning">2 Devices</span>
+                    </div>
+                </div>
+                <div class="card-value" style="color: #ffc107;">2</div>
+                <div class="card-label">Current active sessions</div>
+            </div>
+
+            <!-- Threats Blocked -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon red">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div>
+                        <div class="card-title">Threats Blocked</div>
+                        <span class="status-badge critical">24h</span>
+                    </div>
+                </div>
+                <div class="card-value" style="color: #ff5252;">47</div>
+                <div class="card-label">Threats blocked today</div>
+            </div>
+
+            <!-- Risk Level -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon green">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div class="card-title">Current Risk Level</div>
+                        <span class="status-badge active">Low</span>
+                    </div>
+                </div>
+                <div class="card-value" style="color: #66bb6a;">Low</div>
+                <div class="card-label">Risk score: 15/100</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 15%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Features -->
+        <div class="security-grid">
+            <!-- Authentication Features -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon orange">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="card-title">Authentication Features</div>
+                </div>
+                <ul class="feature-list">
+                    <li>
+                        <span><i class="fas fa-fingerprint"></i> Biometric Auth</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-mobile-alt"></i> 2FA/TOTP</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-usb"></i> WebAuthn/FIDO2</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-keyboard"></i> Behavioral Biometrics</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-sync-alt"></i> Continuous Auth</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Threat Detection -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon red">
+                        <i class="fas fa-shield-virus"></i>
+                    </div>
+                    <div class="card-title">Threat Detection</div>
+                </div>
+                <ul class="feature-list">
+                    <li>
+                        <span><i class="fas fa-plane"></i> Impossible Travel</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-robot"></i> Bot Detection</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-user-secret"></i> Credential Stuffing</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-network-wired"></i> Session Hijacking</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-bug"></i> Honeypot Traps</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Access Control -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon yellow">
+                        <i class="fas fa-user-lock"></i>
+                    </div>
+                    <div class="card-title">Access Control</div>
+                </div>
+                <ul class="feature-list">
+                    <li>
+                        <span><i class="fas fa-users-cog"></i> RBAC</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-balance-scale"></i> Risk-Based Auth</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-globe"></i> Geo-Fencing</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-laptop"></i> Device Fingerprinting</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-clock"></i> Auto Logout</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Encryption & Privacy -->
+            <div class="security-card">
+                <div class="card-header">
+                    <div class="card-icon green">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <div class="card-title">Encryption & Privacy</div>
+                </div>
+                <ul class="feature-list">
+                    <li>
+                        <span><i class="fas fa-shield-alt"></i> End-to-End Encryption</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-eye-slash"></i> Zero-Knowledge Storage</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox">
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-key"></i> Argon2 Password Hashing</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-database"></i> Data Encryption at Rest</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                    <li>
+                        <span><i class="fas fa-exchange-alt"></i> TLS 1.3</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Recent Threats -->
+        <div class="security-card" style="margin-top: 2rem;">
+            <div class="card-header">
+                <div class="card-icon red">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="card-title">Recent Security Events</div>
+            </div>
+            <ul class="threat-list">
+                <li class="threat-item critical">
+                    <div><strong>Impossible Travel Detected</strong></div>
+                    <div style="color: #b7b3c9; font-size: 0.9rem;">Login attempt from Mumbai after recent login from
+                        Delhi (15 minutes apart)</div>
+                    <div class="threat-time"><i class="fas fa-clock"></i> 2 minutes ago</div>
+                </li>
+                <li class="threat-item high">
+                    <div><strong>Credential Stuffing Attempt Blocked</strong></div>
+                    <div style="color: #b7b3c9; font-size: 0.9rem;">Multiple failed login attempts detected from IP
+                        203.0.113.45</div>
+                    <div class="threat-time"><i class="fas fa-clock"></i> 15 minutes ago</div>
+                </li>
+                <li class="threat-item medium">
+                    <div><strong>New Device Login</strong></div>
+                    <div style="color: #b7b3c9; font-size: 0.9rem;">Login from unrecognized device - Additional
+                        verification required</div>
+                    <div class="threat-time"><i class="fas fa-clock"></i> 1 hour ago</div>
+                </li>
+                <li class="threat-item low">
+                    <div><strong>Unusual Login Time</strong></div>
+                    <div style="color: #b7b3c9; font-size: 0.9rem;">Login at 3:45 AM - Outside normal hours</div>
+                    <div class="threat-time"><i class="fas fa-clock"></i> 2 hours ago</div>
+                </li>
+                <li class="threat-item high">
+                    <div><strong>Honeypot Triggered</strong></div>
+                    <div style="color: #b7b3c9; font-size: 0.9rem;">Attacker accessed fake admin panel - IP logged and
+                        blocked</div>
+                    <div class="threat-time"><i class="fas fa-clock"></i> 3 hours ago</div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Add interactivity for toggle switches
+        document.querySelectorAll('.toggle-switch input').forEach(toggle => {
+            toggle.addEventListener('change', function () {
+                const feature = this.parentElement.previousElementSibling.textContent;
+                const status = this.checked ? 'enabled' : 'disabled';
+                console.log(`${feature} ${status}`);
+                // In production, send to backend to update settings
+            });
+        });
+
+        // Simulate real-time updates
+        setInterval(() => {
+            // Update threat count
+            const threatCount = document.querySelector('.security-card:nth-child(3) .card-value');
+            if (threatCount) {
+                const current = parseInt(threatCount.textContent);
+                if (Math.random() > 0.7) {
+                    threatCount.textContent = current + 1;
+                }
+            }
+        }, 30000); // Every 30 seconds
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,62 @@
+======================================================================
+DEBUGGING FAKE NEWS MODELS
+======================================================================
+🔄 Loading models...
+  ✓ Naive Bayes loaded
+  ✓ Logistic Regression loaded
+
+Testing individual models:
+
+
+----------------------------------------------------------------------
+Expected: REAL
+Text: Officials report 3.5% increase in economic growth this year....
+----------------------------------------------------------------------
+Naive Bayes: 0.00%
+Logistic Regression: 4.94%
+Ensemble: 3.08% -> REAL
+Result: CORRECT
+
+----------------------------------------------------------------------
+Expected: FAKE
+Text: SHOCKING: Lemon juice cures all cancer! Doctors HATE this!...
+----------------------------------------------------------------------
+Naive Bayes: 100.00%
+Logistic Regression: 93.73%
+Ensemble: 96.08% -> FAKE
+Result: CORRECT
+
+----------------------------------------------------------------------
+Expected: FAKE
+Text: You won't BELIEVE what this celebrity did - SHOCKING!...
+----------------------------------------------------------------------
+Naive Bayes: 100.00%
+Logistic Regression: 89.82%
+Ensemble: 93.64% -> FAKE
+Result: CORRECT
+
+----------------------------------------------------------------------
+Expected: FAKE
+Text: Secret cure for diabetes that Big Pharma doesn't want you to...
+----------------------------------------------------------------------
+Naive Bayes: 100.00%
+Logistic Regression: 93.69%
+Ensemble: 96.05% -> FAKE
+Result: CORRECT
+
+----------------------------------------------------------------------
+Expected: REAL
+Text: Scientists at MIT publish research on renewable energy....
+----------------------------------------------------------------------
+Naive Bayes: 0.24%
+Logistic Regression: 36.35%
+Ensemble: 22.81% -> REAL
+Result: CORRECT
+
+======================================================================
+CHECKING MODEL FILES
+======================================================================
+Naive Bayes model loaded
+  Keys: dict_keys(['model', 'vectorizer'])
+Logistic Regression model loaded
+  Keys: dict_keys(['model', 'vectorizer'])

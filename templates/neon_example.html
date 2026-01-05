@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Hero Example - MDFDP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/colors.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/neon-effects.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-black);
+            color: var(--text-secondary);
+            overflow-x: hidden;
+        }
+
+        /* Hero Section with Neon Ring */
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-container {
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-left h1 {
+            font-size: 3.5rem;
+            line-height: 1.2;
+            margin-bottom: 20px;
+        }
+
+        .hero-left .gradient-text {
+            background: var(--gradient-metaverse);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-left p {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Neon Avatar Ring */
+        .hero-right {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .neon-avatar {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .neon-avatar .neon-ring {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+        }
+
+        .neon-avatar img {
+            width: 85%;
+            height: 85%;
+            border-radius: 50%;
+            object-fit: cover;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Features Section */
+        .features-section {
+            padding: 100px 20px;
+            background: linear-gradient(180deg, var(--bg-black) 0%, var(--bg-dark) 100%);
+        }
+
+        .features-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title h2 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 100px 20px;
+            background: var(--bg-black);
+        }
+
+        .cta-container {
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .cta-container h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .cta-container p {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .hero-container {
+                grid-template-columns: 1fr;
+                gap: 60px;
+            }
+
+            .neon-avatar {
+                width: 300px;
+                height: 300px;
+            }
+
+            .hero-left h1 {
+                font-size: 2.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-container">
+            <div class="hero-left">
+                <h1>
+                    Secure Your <span class="gradient-text">Digital Future</span> with AI
+                </h1>
+                <p>
+                    Experience next-generation fraud detection powered by advanced machine learning.
+                    Protect your business with real-time analysis across 10+ fraud domains.
+                </p>
+                <div class="hero-buttons">
+                    <button class="btn-neon-pink">Get Started</button>
+                    <button class="btn-neon-cyan">View Demo</button>
+                </div>
+                <div style="margin-top: 40px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <span class="badge-neon-pink">LIVE</span>
+                    <span class="badge-neon-cyan">VERIFIED</span>
+                    <span class="badge-neon-purple">PREMIUM</span>
+                </div>
+            </div>
+
+            <div class="hero-right">
+                <div class="neon-avatar">
+                    <!-- Neon ring (metaverse style) -->
+                    <div class="neon-ring"></div>
+                    <!-- Avatar/Tech Image -->
+                    <img src="https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=400&fit=crop"
+                        alt="AI Technology">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="features-container">
+            <div class="section-title">
+                <h2 class="neon-text-cyan">Powerful Features</h2>
+                <p style="color: var(--text-muted);">Everything you need to detect and prevent fraud</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card card-neon">
+                    <div class="feature-icon neon-text-pink">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>AI-Powered Detection</h3>
+                    <p>Advanced machine learning algorithms trained on millions of data points for maximum accuracy.</p>
+                </div>
+
+                <div class="feature-card glass-neon-pink">
+                    <div class="feature-icon neon-text-cyan">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3>Real-Time Analysis</h3>
+                    <p>Instant fraud detection with response times under 100ms for critical transactions.</p>
+                </div>
+
+                <div class="feature-card glass-neon-cyan">
+                    <div class="feature-icon neon-text-purple">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Multi-Domain Coverage</h3>
+                    <p>Comprehensive protection across UPI, credit cards, emails, URLs, and more.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section with Animated Border -->
+    <section class="cta-section">
+        <div class="cta-container neon-border-animated">
+            <div class="neon-border-content">
+                <h2 class="neon-text-pink">Ready to Get Started?</h2>
+                <p>Join thousands of businesses protecting their digital assets with MDFDP.</p>
+                <button class="btn-neon-purple" style="margin-top: 20px;">Start Free Trial</button>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value neon-text-pink">95%</div>
+                        <div class="stat-label">Accuracy Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value neon-text-cyan">10+</div>
+                        <div class="stat-label">Fraud Domains</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value neon-text-purple">&lt;100ms</div>
+                        <div class="stat-label">Response Time</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Neon Divider -->
+    <hr class="neon-divider">
+
+    <div style="text-align: center; padding: 40px 20px; background: var(--bg-black);">
+        <p style="color: var(--text-muted);">This is an example page showing how to use neon effects from the metaverse
+            design.</p>
+        <p style="color: var(--text-muted); margin-top: 10px;">
+            <a href="/neon-demo" style="color: var(--neon-cyan); text-decoration: none;">View Full Documentation →</a>
+        </p>
+    </div>
+</body>
+
+</html>

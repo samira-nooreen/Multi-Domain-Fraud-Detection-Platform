@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Test - 17 Cities</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+        }
+
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .info {
+            background: #14141b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .city-label {
+            background: transparent !important;
+            border: none !important;
+        }
+
+        .city-name-label {
+            background: rgba(13, 13, 15, 0.9);
+            color: #ffffff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1px solid rgba(136, 118, 248, 0.5);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .stat-box {
+            background: #1a1a23;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .critical {
+            color: #ff0000;
+        }
+
+        .high {
+            color: #ff6f00;
+        }
+
+        .medium {
+            color: #ffeb3b;
+        }
+
+        .low {
+            color: #4caf50;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🗺️ Analytics Map Test - 17 Indian Cities</h1>
+
+    <div class="info">
+        <h2>Expected Cities:</h2>
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value critical">2</div>
+                <div>Critical (Red)</div>
+                <small>Mumbai, Delhi</small>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value high">4</div>
+                <div>High (Orange)</div>
+                <small>Bangalore, Hyderabad, Ahmedabad, Pune</small>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value medium">5</div>
+                <div>Medium (Yellow)</div>
+                <small>Chennai, Kolkata, Surat, Jaipur, Lucknow</small>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value low">6</div>
+                <div>Low (Green)</div>
+                <small>Kanpur, Nagpur, Indore, Bhopal, Chandigarh, Kochi, Guwahati</small>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([22.9734, 78.6569], 5);
+
+        // Add satellite tile layer
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Add reference layer
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            opacity: 0.7
+        }).addTo(map);
+
+        // Color mapping
+        const levelColors = {
+            critical: '#ff0000',
+            high: '#ff6f00',
+            medium: '#ffeb3b',
+            low: '#4caf50'
+        };
+
+        // 17 Cities data
+        const cities = [
+            // CRITICAL (Red)
+            { city: "Mumbai", coords: [19.0760, 72.8777], level: "critical", cases: 245 },
+            { city: "Delhi", coords: [28.6139, 77.2090], level: "critical", cases: 198 },
+
+            // HIGH (Orange)
+            { city: "Bangalore", coords: [12.9716, 77.5946], level: "high", cases: 156 },
+            { city: "Hyderabad", coords: [17.3850, 78.4867], level: "high", cases: 134 },
+            { city: "Ahmedabad", coords: [23.0225, 72.5714], level: "high", cases: 112 },
+            { city: "Pune", coords: [18.5204, 73.8567], level: "high", cases: 98 },
+
+            // MEDIUM (Yellow)
+            { city: "Chennai", coords: [13.0827, 80.2707], level: "medium", cases: 87 },
+            { city: "Kolkata", coords: [22.5726, 88.3639], level: "medium", cases: 76 },
+            { city: "Surat", coords: [21.1702, 72.8311], level: "medium", cases: 64 },
+            { city: "Jaipur", coords: [26.9124, 75.7873], level: "medium", cases: 58 },
+            { city: "Lucknow", coords: [26.8467, 80.9462], level: "medium", cases: 52 },
+
+            // LOW (Green)
+            { city: "Kanpur", coords: [26.4499, 80.3319], level: "low", cases: 43 },
+            { city: "Nagpur", coords: [21.1458, 79.0882], level: "low", cases: 38 },
+            { city: "Indore", coords: [22.7196, 75.8577], level: "low", cases: 35 },
+            { city: "Bhopal", coords: [23.2599, 77.4126], level: "low", cases: 29 },
+            { city: "Chandigarh", coords: [30.7333, 76.7794], level: "low", cases: 24 },
+            { city: "Kochi", coords: [9.9312, 76.2673], level: "low", cases: 19 },
+            { city: "Guwahati", coords: [26.1445, 91.7362], level: "low", cases: 15 }
+        ];
+
+        // Add markers and labels
+        cities.forEach(city => {
+            // Add circle marker
+            const marker = L.circleMarker(city.coords, {
+                radius: 10,
+                fillColor: levelColors[city.level],
+                color: "#ffffff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+
+            marker.bindPopup(`<b>${city.city}</b><br>Risk: ${city.level.toUpperCase()}<br>Cases: ${city.cases}`);
+
+            // Add city label
+            const label = L.marker(city.coords, {
+                icon: L.divIcon({
+                    className: 'city-label',
+                    html: `<div class="city-name-label">${city.city}</div>`,
+                    iconSize: [100, 20],
+                    iconAnchor: [50, -10]
+                })
+            }).addTo(map);
+        });
+
+        // Fix map display
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+
+        console.log(`✅ Loaded ${cities.length} cities on the map!`);
+    </script>
+</body>
+
+</html>
