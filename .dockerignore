@@ -54,9 +54,9 @@ app_startup_err.txt
 data/
 logs/
 
-# Keep these model directories
-# ml_modules/*/*.pkl - KEEP
-# ml_modules/*/*.csv - KEEP for some modules
+# Keep only .pkl and .pth model files, exclude data files
+ml_modules/**/*.csv
+ml_modules/**/*.npy
 
 # Database
 *.sqlite3
