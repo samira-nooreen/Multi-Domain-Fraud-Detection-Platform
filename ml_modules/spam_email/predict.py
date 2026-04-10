@@ -1,6 +1,6 @@
 """
-Spam/Phishing Email Prediction - Ensemble Multi-Model Approach
-Uses DistilBERT, LSTM, Random Forest + TF-IDF, and Naive Bayes
+Spam Email Prediction - Naive Bayes
+Algorithm: Naive Bayes with TF-IDF
 """
 import numpy as np
 import joblib
@@ -8,360 +8,285 @@ import os
 import warnings
 warnings.filterwarnings('ignore')
 
-# Try importing deep learning libraries
-PYTORCH_AVAILABLE = False
-LSTMSpamClassifier = None
-
-try:
-    import torch
-    import torch.nn as nn
-    from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
-    PYTORCH_AVAILABLE = True
-    
-    # LSTM Model Definition (must match training)
-    class LSTMSpamClassifier(nn.Module):
-        def __init__(self, vocab_size, embedding_dim=128, hidden_dim=256, output_dim=2, n_layers=2, dropout=0.3):
-            super().__init__()
-            self.embedding = nn.Embedding(vocab_size, embedding_dim)
-            self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=n_layers,
-                               bidirectional=False, dropout=dropout, batch_first=True)
-            self.fc = nn.Linear(hidden_dim, output_dim)
-            self.dropout = nn.Dropout(dropout)
-            
-        def forward(self, text):
-            embedded = self.dropout(self.embedding(text))
-            output, (hidden, cell) = self.lstm(embedded)
-            hidden = self.dropout(hidden[-1])
-            return self.fc(hidden)
-            
-except Exception as e:
-    PYTORCH_AVAILABLE = False
-    print(f"⚠ PyTorch/Transformers not available: {e}")
-    print("  → Will use classical ML models (Naive Bayes, Random Forest) only")
-
 class SpamDetector:
-    def __init__(self, model_dir=None):
-        if model_dir is None:
-            # Look for models in the same directory as this file
-            import os
-            model_dir = os.path.join(os.path.dirname(__file__), 'models')
-        self.model_dir = model_dir
-        self.models = {}
-        self.load_all_models()
-        
-    def load_all_models(self):
-        """Load all available trained models"""
-        print("🔄 Loading models...")
-        
-        # Load Naive Bayes
+    def __init__(self, model_path=None, vec_path=None, model_dir=None):
+        """
+        Initialize SpamDetector.
+        Accepts:
+          - model_path + vec_path  (legacy paths to individual files)
+          - model_dir              (directory containing models/nb_model.pkl)
+        """
+        self.model = None
+        self.vectorizer = None
+
+        # Priority: explicit paths first, then model_dir, then default
+        if model_path and os.path.exists(model_path):
+            self._load_from_paths(model_path, vec_path)
+        elif model_dir:
+            self._load_from_dir(model_dir)
+        else:
+            # Auto-detect: try same directory as this file
+            default_dir = os.path.join(os.path.dirname(__file__), 'models')
+            self._load_from_dir(default_dir)
+
+            # Fallback: try root-level files
+            if self.model is None:
+                root_model = 'spam_model.pkl'
+                root_vec = 'spam_vectorizer.pkl'
+                if os.path.exists(root_model):
+                    self._load_from_paths(root_model, root_vec)
+
+    def _load_from_paths(self, model_path, vec_path=None):
+        """Load model and vectorizer from individual file paths."""
         try:
-            with open(f'{self.model_dir}/nb_model.pkl', 'rb') as f:
-                self.models['naive_bayes'] = joblib.load(f)
-            print("  ✓ Naive Bayes loaded")
-        except:
-            print("  ⚠ Naive Bayes not found")
-        
-        # Load Random Forest
-        try:
-            with open(f'{self.model_dir}/rf_model.pkl', 'rb') as f:
-                self.models['random_forest'] = joblib.load(f)
-            print("  ✓ Random Forest loaded")
-        except:
-            print("  ⚠ Random Forest not found")
-        
-        # Load LSTM
-        if PYTORCH_AVAILABLE:
-            try:
-                checkpoint = torch.load(f'{self.model_dir}/lstm_model.pth')
-                vocab = checkpoint['vocab']
-                model = LSTMSpamClassifier(vocab_size=len(vocab))
-                model.load_state_dict(checkpoint['model_state'])
-                model.eval()
-                self.models['lstm'] = {'model': model, 'vocab': vocab}
-                print("  ✓ LSTM loaded")
-            except:
-                print("  ⚠ LSTM not found")
-            
-            # Load DistilBERT
-            try:
-                tokenizer = DistilBertTokenizer.from_pretrained(f'{self.model_dir}/distilbert_model')
-                model = DistilBertForSequenceClassification.from_pretrained(f'{self.model_dir}/distilbert_model')
-                model.eval()
-                self.models['distilbert'] = {'model': model, 'tokenizer': tokenizer}
-                print("  ✓ DistilBERT loaded")
-            except:
-                print("  ⚠ DistilBERT not found")
-        
-        if not self.models:
-            print("  ⚠ No models loaded - using fallback heuristics")
-    
-    def predict_naive_bayes(self, text):
-        """Predict using Naive Bayes"""
-        if 'naive_bayes' not in self.models:
-            return None
-        
-        try:
-            model_data = self.models['naive_bayes']
-            vectorizer = model_data['vectorizer']
-            model = model_data['model']
-            
-            X = vectorizer.transform([text])
-            proba = model.predict_proba(X)[0]
-            
-            return {
-                'spam_probability': float(proba[1]),
-                'model': 'Naive Bayes'
-            }
+            with open(model_path, 'rb') as f:
+                data = joblib.load(f)
+            if isinstance(data, dict):
+                self.model = data.get('model')
+                self.vectorizer = data.get('vectorizer')
+            else:
+                self.model = data
+
+            # Load separate vectorizer if provided
+            if vec_path and os.path.exists(vec_path):
+                with open(vec_path, 'rb') as f:
+                    self.vectorizer = joblib.load(f)
+
+            print("  Spam model loaded from paths")
         except Exception as e:
-            print(f"Error in Naive Bayes: {e}")
-            return None
-    
-    def predict_random_forest(self, text):
-        """Predict using Random Forest"""
-        if 'random_forest' not in self.models:
-            return None
-        
+            print(f"  Error loading spam model from paths: {e}")
+
+    def _load_from_dir(self, model_dir):
+        """Load model from models/nb_model.pkl in directory."""
+        model_path = os.path.join(model_dir, 'nb_model.pkl')
         try:
-            model_data = self.models['random_forest']
-            vectorizer = model_data['vectorizer']
-            model = model_data['model']
-            
-            X = vectorizer.transform([text])
-            proba = model.predict_proba(X)[0]
-            
-            return {
-                'spam_probability': float(proba[1]),
-                'model': 'Random Forest'
-            }
-        except Exception as e:
-            print(f"Error in Random Forest: {e}")
-            return None
-    
-    def predict_lstm(self, text):
-        """Predict using LSTM"""
-        if 'lstm' not in self.models or not PYTORCH_AVAILABLE:
-            return None
-        
-        try:
-            model_data = self.models['lstm']
-            model = model_data['model']
-            vocab = model_data['vocab']
-            
-            # Tokenize
-            def text_to_sequence(text, max_len=100):
-                words = text.lower().split()
-                seq = [vocab.get(word, 1) for word in words]
-                if len(seq) < max_len:
-                    seq += [0] * (max_len - len(seq))
+            if os.path.exists(model_path):
+                with open(model_path, 'rb') as f:
+                    data = joblib.load(f)
+                if isinstance(data, dict):
+                    self.model = data.get('model')
+                    self.vectorizer = data.get('vectorizer')
                 else:
-                    seq = seq[:max_len]
-                return seq
-            
-            X = torch.tensor([text_to_sequence(text)])
-            
-            with torch.no_grad():
-                outputs = model(X)
-                proba = torch.softmax(outputs, dim=1)[0]
-            
-            return {
-                'spam_probability': float(proba[1]),
-                'model': 'LSTM'
-            }
+                    self.model = data
+                print("  Spam model loaded from dir")
+            else:
+                print(f"  Model not found at {model_path}")
         except Exception as e:
-            print(f"Error in LSTM: {e}")
-            return None
-    
-    def predict_distilbert(self, text):
-        """Predict using DistilBERT"""
-        if 'distilbert' not in self.models or not PYTORCH_AVAILABLE:
-            return None
-        
-        try:
-            model_data = self.models['distilbert']
-            model = model_data['model']
-            tokenizer = model_data['tokenizer']
-            
-            inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
-            
-            with torch.no_grad():
-                outputs = model(**inputs)
-            
-            logits = outputs.logits
-            proba = torch.softmax(logits, dim=1)[0]
-            
-            return {
-                'spam_probability': float(proba[1]),
-                'model': 'DistilBERT'
-            }
-        except Exception as e:
-            print(f"Error in DistilBERT: {e}")
-            return None
-    
-    def predict_ensemble(self, text, method='weighted'):
-        """
-        Ensemble prediction using all available models
-        
-        Args:
-            text: Email text to classify
-            method: 'weighted' or 'voting'
-        """
-        predictions = []
-        
-        # Get predictions from all models
-        nb_pred = self.predict_naive_bayes(text)
-        if nb_pred:
-            predictions.append((nb_pred['spam_probability'], 0.15, 'Naive Bayes'))
-        
-        rf_pred = self.predict_random_forest(text)
-        if rf_pred:
-            predictions.append((rf_pred['spam_probability'], 0.25, 'Random Forest'))
-        
-        lstm_pred = self.predict_lstm(text)
-        if lstm_pred:
-            predictions.append((lstm_pred['spam_probability'], 0.25, 'LSTM'))
-        
-        bert_pred = self.predict_distilbert(text)
-        if bert_pred:
-            predictions.append((bert_pred['spam_probability'], 0.35, 'DistilBERT'))
-        
-        if not predictions:
+            print(f"  Error loading spam model from dir: {e}")
+
+    def predict(self, text):
+        """Predict spam probability using Naive Bayes with enhanced rules"""
+        if self.model is None or self.vectorizer is None:
             return self._mock_predict(text)
-        
-        # Weighted average
-        if method == 'weighted':
-            total_weight = sum(weight for _, weight, _ in predictions)
-            weighted_prob = sum(prob * weight for prob, weight, _ in predictions) / total_weight
-        else:
-            # Simple average
-            weighted_prob = sum(prob for prob, _, _ in predictions) / len(predictions)
-        
-        # Determine confidence based on agreement
-        probs = [prob for prob, _, _ in predictions]
-        std_dev = (sum((p - weighted_prob)**2 for p in probs) / len(probs)) ** 0.5
-        
-        if std_dev < 0.1:
-            confidence = 'HIGH'
-        elif std_dev < 0.2:
-            confidence = 'MEDIUM'
-        else:
-            confidence = 'LOW'
-        
-        return {
-            'is_spam': bool(weighted_prob > 0.5),
-            'spam_probability': float(weighted_prob),
-            'category': 'SPAM' if weighted_prob > 0.5 else 'HAM',
-            'confidence': confidence,
-            'models_used': [name for _, _, name in predictions],
-            'individual_predictions': {
-                name: {'probability': float(prob), 'weight': weight} 
-                for prob, weight, name in predictions
+
+        try:
+            X = self.vectorizer.transform([text])
+            proba = self.model.predict_proba(X)[0][1]
+            
+            # Extract sender email if present
+            sender_email = ''
+            if 'From:' in text:
+                import re
+                match = re.search(r'From:\s*([^\s]+@[^\s]+)', text)
+                if match:
+                    sender_email = match.group(1).lower()
+            
+            text_lower = text.lower()
+            
+            # ============================================
+            # TRUSTED DOMAIN DETECTION - Reduce risk
+            # ============================================
+            trusted_domains = ['.edu', '.gov', '.org', '.ac.in', '.edu.in']
+            trusted_domain_found = any(domain in sender_email for domain in trusted_domains)
+            
+            if trusted_domain_found:
+                proba = max(0.05, proba - 0.40)  # Strong reduction for trusted domains
+            
+            # ============================================
+            # LEGITIMATE EMAIL INDICATORS - Reduce risk
+            # ============================================
+            legitimate_indicators = [
+                'university', 'professor', 'assignment', 'meeting', 'schedule',
+                'please', 'thank you', 'regards', 'sincerely', 'best',
+                'team', 'company', 'office', 'department', 'dear', 'hello',
+                'interview', 'candidate', 'availability', 'clarification'
+            ]
+            legit_count = sum(1 for word in legitimate_indicators if word in text_lower)
+            
+            if legit_count >= 3:
+                proba = max(0.05, proba - 0.35)
+            elif legit_count >= 2:
+                proba = max(0.10, proba - 0.25)
+            elif legit_count >= 1:
+                proba = max(0.15, proba - 0.15)
+            
+            # ============================================
+            # SPAM KEYWORD DETECTION - Increase risk
+            # ============================================
+            spam_keywords = [
+                'win', 'free', 'offer', 'click', 'urgent', 'congratulations',
+                'lottery', 'prize', 'million', 'cash', 'money', 'guaranteed',
+                'limited time', 'act now', 'hurry', 'claim now', 'click here'
+            ]
+            spam_count = sum(1 for word in spam_keywords if word in text_lower)
+            
+            if spam_count >= 4:
+                proba = min(0.95, proba + 0.40)
+            elif spam_count >= 3:
+                proba = min(0.90, proba + 0.30)
+            elif spam_count >= 2:
+                proba = min(0.80, proba + 0.20)
+            elif spam_count >= 1:
+                proba = min(0.65, proba + 0.10)
+            
+            # ============================================
+            # SUSPICIOUS DOMAIN DETECTION - Increase risk
+            # ============================================
+            suspicious_domains = ['.xyz', '.ru', '.tk', '.ml', '.ga', '.cf']
+            suspicious_domain_found = any(domain in sender_email for domain in suspicious_domains)
+            
+            if suspicious_domain_found:
+                proba = min(0.95, proba + 0.25)
+            
+            # ============================================
+            # PHISHING INDICATORS - Strong increase
+            # ============================================
+            phishing_indicators = [
+                'account suspended', 'verify your account', 'login to verify',
+                'click the link below', 'login immediately', 'confirm your identity'
+            ]
+            phishing_count = sum(1 for phrase in phishing_indicators if phrase in text_lower)
+            
+            if phishing_count >= 2:
+                proba = min(0.98, proba + 0.40)
+            elif phishing_count >= 1:
+                proba = min(0.90, proba + 0.25)
+            
+            # ============================================
+            # FINAL DECISION
+            # ============================================
+            is_spam = proba > 0.5
+            confidence_value = abs(proba - 0.5) * 2  # 0-1 scale
+            confidence_percent = min(100, max(0, confidence_value * 100))
+            
+            # Determine risk level
+            if proba > 0.75:
+                risk_level = 'HIGH'
+            elif proba > 0.5:
+                risk_level = 'MEDIUM'
+            else:
+                risk_level = 'LOW'
+
+            return {
+                'is_spam': bool(is_spam),
+                'spam_probability': float(proba),
+                'category': 'SPAM' if is_spam else 'HAM',
+                'confidence': confidence_value,
+                'confidence_percent': round(confidence_percent, 2),
+                'risk_level': risk_level,
+                'model_used': 'Naive Bayes + Rule-Based Enhancement',
+                'recommendation': (
+                    'BLOCK - High confidence spam detected' if proba > 0.75 else
+                    'QUARANTINE - Likely spam' if proba > 0.5 else
+                    'ALLOW - Legitimate email'
+                ),
+                'spam_indicators': self._extract_spam_indicators(text, sender_email),
+                'trusted_domain': trusted_domain_found,
+                'spam_keywords_found': spam_count,
+                'legitimate_indicators_found': legit_count
             }
-        }
-    
-    def _process_minimal_inputs(self, data):
-        """Convert minimal user inputs to full email text"""
-        # Extract minimal inputs
-        sender_email = data.get('sender_email', '')
-        email_content = data.get('email_content', '')
-        
-        # Combine into a single text for analysis
-        # In a real implementation, we might extract more features from sender_email
-        full_text = f"From: {sender_email}\n\n{email_content}"
-        return full_text
-    
-    def predict(self, text, use_ensemble=True):
-        """
-        Main prediction method
-        
-        Args:
-            text: Email text to classify
-            use_ensemble: If True, use ensemble; otherwise use best single model
-        """
-        if use_ensemble:
-            return self.predict_ensemble(text)
-        
-        # Try models in order of preference
-        for predict_fn in [self.predict_distilbert, self.predict_lstm, 
-                          self.predict_random_forest, self.predict_naive_bayes]:
-            result = predict_fn(text)
-            if result:
-                spam_prob = result['spam_probability']
-                return {
-                    'is_spam': bool(spam_prob > 0.5),
-                    'spam_probability': float(spam_prob),
-                    'category': 'SPAM' if spam_prob > 0.5 else 'HAM',
-                    'confidence': 'HIGH' if abs(spam_prob - 0.5) > 0.3 else 'MEDIUM',
-                    'model_used': result['model']
-                }
-        
-        # Fallback
-        return self._mock_predict(text)
-    
+        except Exception as e:
+            print(f"Prediction error: {e}")
+            return self._mock_predict(text)
+
     def _mock_predict(self, text):
         """Fallback heuristic-based prediction"""
         spam_keywords = [
             'free', 'winner', 'urgent', 'click here', 'buy now', 'limited time',
             'offer', 'money', 'cash', 'prize', 'congratulations', 'claim',
-            'verify', 'suspended', 'account', 'password', 'reset', 'confirm'
+            'verify', 'suspended', 'account', 'password', 'reset', 'confirm',
+            'won', 'lottery', 'inheritance', 'million', 'bank transfer',
+            'nigerian', 'prince', 'unsubscribe', 'earn from home'
         ]
-        
-        phishing_indicators = [
-            'http://', 'https://', 'bit.ly', 'tinyurl', '.com', 'click',
-            'verify', 'urgent', 'suspended', 'locked'
-        ]
-        
+
+        score = 0.0
+        text_lower = text.lower()
+
+        matched = sum(1 for word in spam_keywords if word in text_lower)
+        score += min(0.7, matched * 0.08)
+
+        if text.count('!') > 2:
+            score += 0.1
+        if text.count('$') > 0:
+            score += 0.05
+
+        prob = min(0.95, score)
+
+        return {
+            'is_spam': bool(prob > 0.5),
+            'spam_probability': float(prob),
+            'category': 'SPAM' if prob > 0.5 else 'HAM',
+            'confidence': 'LOW',
+            'risk_level': 'HIGH' if prob > 0.7 else 'MEDIUM' if prob > 0.4 else 'LOW',
+            'model_used': 'Heuristic Fallback',
+            'recommendation': (
+                'BLOCK - Suspicious content detected' if prob > 0.5 else
+                'ALLOW - Appears legitimate'
+            )
+        }
+    
+    def _extract_spam_indicators(self, text, sender_email=''):
+        """Extract specific spam indicators from the email"""
+        indicators = []
         text_lower = text.lower()
         
-        score = 0
-        
         # Check for spam keywords
-        for word in spam_keywords:
-            if word in text_lower:
-                score += 0.1
+        spam_keywords = [
+            'free', 'winner', 'urgent', 'click here', 'buy now', 'limited time',
+            'offer', 'money', 'cash', 'prize', 'congratulations', 'claim',
+            'verify', 'suspended', 'account', 'password', 'reset', 'confirm',
+            'win', 'lottery', 'million', 'guaranteed', 'hurry'
+        ]
         
-        # Check for phishing indicators
-        for indicator in phishing_indicators:
-            if indicator in text_lower:
-                score += 0.15
+        matched_keywords = [word for word in spam_keywords if word in text_lower]
+        if matched_keywords:
+            indicators.append(f"Spam keywords: {', '.join(matched_keywords[:5])}")
         
-        # Check for all caps (spam indicator)
-        if sum(1 for c in text if c.isupper()) / max(len(text), 1) > 0.3:
-            score += 0.2
+        # Check sender domain
+        if sender_email:
+            suspicious_domains = ['.xyz', '.ru', '.tk', '.ml', '.ga', '.cf']
+            if any(domain in sender_email for domain in suspicious_domains):
+                indicators.append(f"Suspicious domain in sender email")
+            
+            trusted_domains = ['.edu', '.gov', '.org']
+            if any(domain in sender_email for domain in trusted_domains):
+                indicators.append(f"Trusted domain detected")
         
-        # Check for excessive exclamation marks
-        if text.count('!') > 2:
-            score += 0.15
+        # Check for excessive punctuation
+        if text.count('!') > 3:
+            indicators.append(f"Excessive exclamation marks ({text.count('!')})")
         
-        spam_prob = min(0.95, score)
+        if text.count('$') > 2:
+            indicators.append("Multiple dollar signs (financial urgency)")
         
-        return {
-            'is_spam': bool(spam_prob > 0.5),
-            'spam_probability': float(spam_prob),
-            'category': 'SPAM' if spam_prob > 0.5 else 'HAM',
-            'confidence': 'LOW',
-            'model_used': 'Heuristic Fallback'
-        }
-
-if __name__ == "__main__":
-    # Test the detector
-    detector = SpamDetector()
-    
-    test_cases = [
-        "Hi John, let's schedule a meeting to discuss the Q4 report.",
-        "URGENT: Your account will be suspended! Click here to verify now!",
-        "Team update: The project deadline has been moved to next Monday.",
-        "Congratulations! You've won $10000! Claim your prize at bit.ly/xyz123"
-    ]
-    
-    print("\n" + "="*60)
-    print("🧪 Testing Spam/Phishing Detector")
-    print("="*60)
-    
-    for text in test_cases:
-        print(f"\n📧 Email: {text[:60]}...")
-        result = detector.predict(text, use_ensemble=True)
-        print(f"   Result: {'🚨 SPAM' if result['is_spam'] else '✅ HAM'}")
-        print(f"   Probability: {result['spam_probability']:.2%}")
-        print(f"   Confidence: {result['confidence']}")
-        if 'models_used' in result:
-            print(f"   Models: {', '.join(result['models_used'])}")
+        # Check for ALL CAPS
+        words = text.split()
+        caps_words = [w for w in words if w.isupper() and len(w) > 3]
+        if len(caps_words) > 3:
+            indicators.append(f"Multiple ALL CAPS words ({len(caps_words)})")
+        
+        # Check for suspicious links
+        import re
+        urls = re.findall(r'http[s]?://\S+', text)
+        if len(urls) > 2:
+            indicators.append(f"Multiple links detected ({len(urls)})")
+        
+        # Check for phishing patterns
+        phishing_patterns = ['click the link', 'verify your account', 'login immediately']
+        if any(pattern in text_lower for pattern in phishing_patterns):
+            indicators.append("Phishing pattern detected")
+        
+        if not indicators:
+            indicators.append("No specific spam indicators detected")
+        
+        return " | ".join(indicators)

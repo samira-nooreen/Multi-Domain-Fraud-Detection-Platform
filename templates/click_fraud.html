@@ -106,6 +106,10 @@
             color: #ff6b6b;
         }
         
+        .result-header.warning {
+            color: #ffd166;
+        }
+        
         .result-header.safe {
             color: #38ef7d;
         }
@@ -250,23 +254,27 @@
             <h2>Click Information</h2>
             <form id="clickForm">
                 <div class="form-group">
-                    <label for="ad_campaign_id">Ad Campaign ID</label>
-                    <input type="text" id="ad_campaign_id" name="ad_campaign_id" required placeholder="Enter ad campaign ID">
+                    <label for="click_count">Number of Clicks</label>
+                    <input type="number" id="click_count" name="click_count" required placeholder="Enter number of clicks (e.g., 50)" min="1">
                 </div>
                 
                 <div class="form-group">
-                    <label for="click_timestamp">Click Timestamp</label>
-                    <input type="datetime-local" id="click_timestamp" name="click_timestamp" required>
+                    <label for="time_spent">Time Spent (seconds)</label>
+                    <input type="number" id="time_spent" name="time_spent" required placeholder="Enter total time in seconds (e.g., 30)" min="0.1" step="0.1">
                 </div>
                 
                 <div class="form-group">
-                    <label for="user_agent">User Agent (Browser)</label>
-                    <input type="text" id="user_agent" name="user_agent" required placeholder="Enter user agent">
+                    <label for="click_pattern">Click Pattern</label>
+                    <select id="click_pattern" name="click_pattern" required style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #2a2a35; background: #0d0d0f; color: #e6e6e6; font-size: 1rem;">
+                        <option value="normal">Normal Human Behavior</option>
+                        <option value="fast">Fast/Automated Clicks</option>
+                        <option value="suspicious">Suspicious Pattern</option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="ip_address">IP Address</label>
-                    <input type="text" id="ip_address" name="ip_address" required placeholder="Enter IP address">
+                    <label for="ip_changes">IP Address Changes</label>
+                    <input type="number" id="ip_changes" name="ip_changes" required placeholder="Number of IP changes (0-5)" min="0" max="10" value="0">
                 </div>
                 
                 <button type="submit" class="btn-analyze">
@@ -316,45 +324,142 @@
     </div>
 
     <script>
-        document.getElementById('clickForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+        // Ensure result card is hidden on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            const resultCard = document.getElementById("resultCard");
+            if (resultCard) {
+                resultCard.classList.remove('show');
+                resultCard.style.display = "none";
+            }
             
-            // Show result card and loading
-            const resultCard = document.getElementById('resultCard');
-            const loading = document.getElementById('loading');
-            const resultContent = document.getElementById('resultCard').querySelector('.result-header').nextElementSibling;
-            
-            resultCard.classList.add('show');
-            loading.classList.add('show');
-            
-            // Collect form data
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-            
-            try {
-                const response = await fetch('/detect_click', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
+            // Attach form submit handler
+            const form = document.getElementById('clickForm');
+            if (form) {
+                console.log('Click form found, attaching handler...');
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    console.log('Form submitted!');
+                    
+                    // Show loading
+                    const resultCard = document.getElementById('resultCard');
+                    const loading = document.getElementById('loading');
+                    
+                    loading.classList.add('show');
+                    if (resultCard) {
+                        resultCard.classList.remove('show');
+                        resultCard.style.display = 'none';
+                    }
+                    
+                    // Collect form data
+                    const formData = new FormData(e.target);
+                    const clickCount = parseInt(formData.get('click_count'));
+                    const timeSpent = parseFloat(formData.get('time_spent'));
+                    const clickPattern = formData.get('click_pattern');
+                    const ipChanges = parseInt(formData.get('ip_changes'));
+                    
+                    console.log('Form data:', { clickCount, timeSpent, clickPattern, ipChanges });
+                    
+                    // Build realistic click sequence based on pattern
+                    const sequence = buildClickSequence(clickCount, timeSpent, clickPattern, ipChanges);
+                    
+                    const data = {
+                        sequence: sequence,
+                        click_count: clickCount,
+                        time_spent: timeSpent,
+                        click_pattern: clickPattern
+                    };
+                    
+                    try {
+                        console.log('Sending request to /detect_click...');
+                        const response = await fetch('/detect_click', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        console.log('Response status:', response.status);
+                        const result = await response.json();
+                        console.log('Response:', result);
+                        
+                        // Hide loading
+                        loading.classList.remove('show');
+                        
+                        if (result.status === 'success') {
+                            displayResult(result.result);
+                            resultCard.classList.add('show');
+                            resultCard.style.display = 'block';
+                        } else {
+                            alert('Error: ' + (result.message || 'Unknown error occurred'));
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        loading.classList.remove('show');
+                        alert('Error analyzing click: ' + error.message);
+                    }
                 });
-                
-                const result = await response.json();
-                
-                // Hide loading
-                loading.classList.remove('show');
-                
-                if (result.status === 'success') {
-                    displayResult(result.result);
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            } catch (error) {
-                loading.classList.remove('show');
-                alert('Error analyzing click: ' + error.message);
+            } else {
+                console.error('Click form not found!');
             }
         });
+        
+        function buildClickSequence(clickCount, timeSpent, pattern, ipChanges) {
+            const sequence = [];
+            const avgTimeDiff = timeSpent / clickCount;
+            const velocity = (clickCount / timeSpent) * 60; // clicks per minute
+            
+            // Get current hour
+            const hour = new Date().getHours();
+            const isWeekend = [0, 6].includes(new Date().getDay()) ? 1 : 0;
+            
+            for (let i = 0; i < clickCount; i++) {
+                let timeDiff, clickX, clickY, ipChange, uaChange, clickVelocity, referrerEntropy;
+                
+                if (pattern === 'normal') {
+                    // Normal human behavior
+                    timeDiff = avgTimeDiff + (Math.random() - 0.5) * avgTimeDiff * 0.5;
+                    clickX = Math.random() * 800 + 100; // Wide spread
+                    clickY = Math.random() * 600 + 100;
+                    ipChange = i === 0 && ipChanges > 0 ? 1 : 0;
+                    uaChange = 0;
+                    clickVelocity = velocity + (Math.random() - 0.5) * velocity * 0.3;
+                    referrerEntropy = 1.5 + Math.random() * 1.5; // High entropy
+                } else if (pattern === 'fast') {
+                    // Automated bot: very consistent timing, concentrated clicks
+                    timeDiff = avgTimeDiff * (0.85 + Math.random() * 0.3); // Very consistent
+                    clickX = 400 + (Math.random() - 0.5) * 40; // Highly concentrated
+                    clickY = 300 + (Math.random() - 0.5) * 40;
+                    ipChange = ipChanges > 2 ? 1 : 0;
+                    uaChange = ipChanges > 3 ? 1 : 0;
+                    clickVelocity = velocity * (0.9 + Math.random() * 0.2);
+                    referrerEntropy = Math.random() * 0.5; // Very low entropy
+                } else {
+                    // Suspicious pattern
+                    timeDiff = avgTimeDiff * (0.5 + Math.random());
+                    clickX = 400 + (Math.random() - 0.5) * 100;
+                    clickY = 300 + (Math.random() - 0.5) * 100;
+                    ipChange = Math.random() < (ipChanges / clickCount) ? 1 : 0;
+                    uaChange = Math.random() < 0.1 ? 1 : 0;
+                    clickVelocity = velocity * (0.7 + Math.random() * 0.6);
+                    referrerEntropy = 0.3 + Math.random() * 0.9; // Lower entropy
+                }
+                
+                sequence.push([
+                    Math.max(0.01, timeDiff),
+                    Math.max(0, clickX),
+                    Math.max(0, clickY),
+                    ipChange,
+                    uaChange,
+                    hour,
+                    isWeekend,
+                    Math.max(0, clickVelocity),
+                    Math.max(0, referrerEntropy)
+                ]);
+            }
+            
+            return sequence;
+        }
         
         function displayResult(result) {
             const resultHeader = document.getElementById('resultHeader');
@@ -362,24 +467,48 @@
             const resultTitle = document.getElementById('resultTitle');
             const resultSubtitle = document.getElementById('resultSubtitle');
             
-            const isFraud = result.is_fraud;
+            const riskLevel = result.risk_level;
+            const prob = result.fraud_probability * 100;
             
-            if (isFraud) {
+            // Set header style based on risk level
+            if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') {
                 resultHeader.className = 'result-header fraud';
                 resultIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
                 resultTitle.textContent = 'Click Fraud Detected!';
-                resultSubtitle.textContent = 'This click shows fraudulent patterns';
+                resultSubtitle.textContent = `High-risk ${riskLevel.toLowerCase()} fraud probability`;
+            } else if (riskLevel === 'MEDIUM') {
+                resultHeader.className = 'result-header warning';
+                resultIcon.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+                resultTitle.textContent = 'Suspicious Activity';
+                resultSubtitle.textContent = 'Medium risk - requires monitoring';
             } else {
                 resultHeader.className = 'result-header safe';
                 resultIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
                 resultTitle.textContent = 'Legitimate Click';
-                resultSubtitle.textContent = 'No fraud indicators detected';
+                resultSubtitle.textContent = 'Low risk - normal behavior';
             }
             
-            document.getElementById('fraudProb').textContent = (result.fraud_probability * 100).toFixed(2) + '%';
-            document.getElementById('legitProb').textContent = ((1 - result.fraud_probability) * 100).toFixed(2) + '%';
-            document.getElementById('classification').innerHTML = `<span class="risk-badge risk-${isFraud ? 'high' : 'low'}">${isFraud ? 'FRAUDULENT' : 'LEGITIMATE'}</span>`;
-            document.getElementById('recommendation').textContent = result.recommendation || (isFraud ? 'Block this IP and investigate user agent.' : 'Traffic appears normal.');
+            document.getElementById('fraudProb').textContent = prob.toFixed(2) + '%';
+            document.getElementById('legitProb').textContent = ((100 - prob)).toFixed(2) + '%';
+            
+            // Set classification badge based on risk level
+            let badgeClass, badgeText;
+            if (riskLevel === 'CRITICAL') {
+                badgeClass = 'risk-high';
+                badgeText = 'CRITICAL';
+            } else if (riskLevel === 'HIGH') {
+                badgeClass = 'risk-high';
+                badgeText = 'HIGH';
+            } else if (riskLevel === 'MEDIUM') {
+                badgeClass = 'risk-medium';
+                badgeText = 'MEDIUM';
+            } else {
+                badgeClass = 'risk-low';
+                badgeText = 'LOW';
+            }
+            
+            document.getElementById('classification').innerHTML = `<span class="risk-badge ${badgeClass}">${badgeText}</span>`;
+            document.getElementById('recommendation').textContent = result.recommendation || 'No recommendation available';
         }
     </script>
 </body>

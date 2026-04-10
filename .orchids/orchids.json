@@ -1,7 +1,0 @@
-{
-  "projectId": "787c0e19-48dc-4dc7-b73f-eee5346c6a27",
-  "createdAt": 1767633296979,
-  "startupCommands": [
-    "python app.py"
-  ]
-}

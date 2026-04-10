@@ -1,436 +1,262 @@
-# Click Fraud Prediction - Ensemble Multi-Model Approach
-# Algorithms: CatBoost, Logistic Regression, Autoencoder, Wide & Deep, LSTM, Isolation Forest
+# Click Fraud Prediction - LSTM / Heuristic
+# Algorithm: LSTM (primary) with heuristic fallback
 
 import numpy as np
-import joblib
 import os
 import warnings
 warnings.filterwarnings('ignore')
-# Try importing deep learning libraries (guard against DLL errors)
-try:
-    import torch
-    import torch.nn as nn
-    PYTORCH_AVAILABLE = True
-except Exception as e:
-    torch = None
-    nn = None
-    PYTORCH_AVAILABLE = False
-    print(f"⚠ PyTorch not available: {e}")
 
-# ---------------------------------------------------------------------------
-# Model definitions (must match training)
-# ---------------------------------------------------------------------------
-if PYTORCH_AVAILABLE:
-    class ClickAutoencoder(nn.Module):
-        def __init__(self, input_dim=15, encoding_dim=8):
-            super().__init__()
-            self.encoder = nn.Sequential(
-                nn.Linear(input_dim, 32),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(32, 16),
-                nn.ReLU(),
-                nn.Linear(16, encoding_dim),
-                nn.ReLU()
-            )
-            self.decoder = nn.Sequential(
-                nn.Linear(encoding_dim, 16),
-                nn.ReLU(),
-                nn.Linear(16, 32),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(32, input_dim)
-            )
-        def forward(self, x):
-            encoded = self.encoder(x)
-            decoded = self.decoder(encoded)
-            return decoded
 
-    class WideDeepModel(nn.Module):
-        def __init__(self, input_dim=15):
-            super().__init__()
-            self.wide = nn.Linear(input_dim, 1)
-            self.deep = nn.Sequential(
-                nn.Linear(input_dim, 64),
-                nn.ReLU(),
-                nn.BatchNorm1d(64),
-                nn.Dropout(0.3),
-                nn.Linear(64, 32),
-                nn.ReLU(),
-                nn.BatchNorm1d(32),
-                nn.Dropout(0.2),
-                nn.Linear(32, 16),
-                nn.ReLU(),
-                nn.Linear(16, 1)
-            )
-        def forward(self, x):
-            wide_out = self.wide(x)
-            deep_out = self.deep(x)
-            return torch.sigmoid(wide_out + deep_out)
-
-    class ClickLSTM(nn.Module):
-        def __init__(self, input_dim=8, hidden_dim=64, num_layers=2):
-            super().__init__()
-            self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2)
-            self.fc = nn.Sequential(
-                nn.Linear(hidden_dim, 32),
-                nn.ReLU(),
-                nn.Linear(32, 1)
-            )
-        def forward(self, x):
-            lstm_out, _ = self.lstm(x)
-            last_step = lstm_out[:, -1, :]
-            out = torch.sigmoid(self.fc(last_step))
-            return out
-else:
-    ClickAutoencoder = None
-    WideDeepModel = None
-    ClickLSTM = None
-
-# ---------------------------------------------------------------------------
-# Detector class
-# ---------------------------------------------------------------------------
 class ClickFraudDetector:
     def __init__(self, model_dir='./models'):
         self.model_dir = model_dir
-        self.models = {}
-        self.load_all_models()
+        self.lstm_model = None
+        self.use_torch = False
+        self._load_lstm()
 
-    def load_all_models(self):
-        """Load all trained models (CatBoost, Logistic Regression, Autoencoder, Wide & Deep, LSTM, Isolation Forest)."""
-        print("🔄 Loading models...")
-        # Logistic Regression (saved as logreg_model.pkl)
-        try:
-            with open(os.path.join(self.model_dir, 'logreg_model.pkl'), 'rb') as f:
-                self.models['logistic_regression'] = joblib.load(f)
-            print("  ✓ Logistic Regression loaded")
-        except Exception:
-            print("  ⚠ Logistic Regression not found")
-        # CatBoost
-        try:
-            self.models['catboost'] = joblib.load(os.path.join(self.model_dir, 'catboost_model.pkl'))
-            print("  ✓ CatBoost loaded")
-        except Exception:
-            print("  ⚠ CatBoost not found")
-        # Autoencoder
-        if PYTORCH_AVAILABLE:
-            try:
-                checkpoint = torch.load(os.path.join(self.model_dir, 'autoencoder_model.pth'))
-                model = ClickAutoencoder()
-                model.load_state_dict(checkpoint['model_state'])
-                model.eval()
-                self.models['autoencoder'] = {
-                    'model': model,
-                    'threshold': checkpoint['threshold'],
-                    'scaler': checkpoint['scaler']
-                }
-                print("  ✓ Autoencoder loaded")
-            except Exception:
-                print("  ⚠ Autoencoder not found")
-            # Wide & Deep
-            try:
-                checkpoint = torch.load(os.path.join(self.model_dir, 'widedeep_model.pth'))
-                model = WideDeepModel()
-                model.load_state_dict(checkpoint['model_state'])
-                model.eval()
-                self.models['widedeep'] = {
-                    'model': model,
-                    'scaler': checkpoint['scaler']
-                }
-                print("  ✓ Wide & Deep loaded")
-            except Exception:
-                print("  ⚠ Wide & Deep not found")
-            # LSTM
-            try:
-                checkpoint = torch.load(os.path.join(self.model_dir, 'lstm_model.pth'))
-                model = ClickLSTM()
-                model.load_state_dict(checkpoint)
-                model.eval()
-                self.models['lstm'] = model
-                print("  ✓ LSTM loaded")
-            except Exception:
-                print("  ⚠ LSTM not found")
-        # Isolation Forest (tabular)
-        try:
-            self.models['isolation_forest'] = joblib.load(os.path.join(self.model_dir, 'isolation_forest.pkl'))
-            print("  ✓ Isolation Forest loaded")
-        except Exception:
-            print("  ⚠ Isolation Forest not found")
-        if not self.models:
-            print("  ⚠ No models loaded – fallback heuristics will be used")
+    def _load_lstm(self):
+        """Try to load PyTorch LSTM model."""
+        lstm_path = os.path.join(self.model_dir, 'lstm_model.pth')
+        if not os.path.exists(lstm_path):
+            return
 
-    # ---------------------------------------------------------------------
-    # Feature engineering – aggregate sequential click data into a fixed vector
-    # ---------------------------------------------------------------------
-    def aggregate_sequence_features(self, sequence_data):
-        """Convert raw click sequence into a 15‑dimensional feature vector.
-        Expected sequence_data format: list of lists/tuples where each element
-        contains at least [time_diff, x, y, ip_change, ua_change, hour, weekend, velocity].
+        try:
+            import torch
+            import torch.nn as nn
+
+            class ClickLSTM(nn.Module):
+                def __init__(self, input_dim=9, hidden_dim=64, num_layers=2):
+                    super().__init__()
+                    self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers,
+                                        batch_first=True, dropout=0.2)
+                    self.fc = nn.Sequential(
+                        nn.Linear(hidden_dim, 32),
+                        nn.ReLU(),
+                        nn.Linear(32, 1)
+                    )
+                def forward(self, x):
+                    out, _ = self.lstm(x)
+                    return torch.sigmoid(self.fc(out[:, -1, :]))
+
+            m = ClickLSTM(input_dim=9)
+            m.load_state_dict(torch.load(lstm_path, map_location='cpu'))
+            m.eval()
+            self.lstm_model = m
+            self.use_torch = True
+            print("  Click LSTM model loaded")
+        except Exception as e:
+            print(f"  LSTM load failed: {e}")
+
+    def predict(self, sequence_data):
+        """
+        Predict click fraud.
+
+        sequence_data: list of lists.
+          Each inner list represents one click event with features:
+          [time_diff, click_x, click_y, ip_change, user_agent_change,
+           hour_of_day, is_weekend, click_velocity, referrer_entropy]
+
+        Returns dict with fraud probability and risk level.
         """
         if not sequence_data:
-            return np.zeros(15)
-        seq = np.array(sequence_data)
-        if seq.shape[1] >= 8:
-            feats = [
-                np.mean(seq[:, 0]), np.std(seq[:, 0]), np.min(seq[:, 0]), np.max(seq[:, 0]),
-                np.mean(seq[:, 1]), np.std(seq[:, 1]),
-                np.mean(seq[:, 2]), np.std(seq[:, 2]),
-                np.sum(seq[:, 3]), np.sum(seq[:, 4]),
-                np.mean(seq[:, 5]), np.mean(seq[:, 6]),
-                np.mean(seq[:, 7]), np.std(seq[:, 7]),
-                len(sequence_data)
-            ]
-        else:
-            # fallback for shorter feature sets
-            feats = [
-                np.mean(seq[:, 0]), np.std(seq[:, 0]), np.min(seq[:, 0]), np.max(seq[:, 0]),
-                np.mean(seq[:, 1]), np.std(seq[:, 1]),
-                np.mean(seq[:, 2]), np.std(seq[:, 2]),
-                np.sum(seq[:, 3]) if seq.shape[1] > 3 else 0,
-                0, 12, 0, 10, 5, len(sequence_data)
-            ]
-        return np.array(feats)
+            return self._format_result(0.05, 'Heuristic')
 
-    # ---------------------------------------------------------------------
-    # Individual model prediction helpers
-    # ---------------------------------------------------------------------
-    def predict_logistic_regression(self, features):
-        if 'logistic_regression' not in self.models:
-            return None
-        try:
-            model_data = self.models['logistic_regression']
-            scaler = model_data['scaler']
-            model = model_data['model']
-            X = scaler.transform([features])
-            proba = model.predict_proba(X)[0][1]
-            return {'fraud_probability': float(proba), 'model': 'Logistic Regression'}
-        except Exception as e:
-            print(f"Error in Logistic Regression: {e}")
-            return None
+        arr = np.array(sequence_data, dtype=np.float64)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
 
-    def predict_catboost(self, features):
-        if 'catboost' not in self.models:
-            return None
-        try:
-            model = self.models['catboost']
-            proba = model.predict_proba([features])[0][1]
-            return {'fraud_probability': float(proba), 'model': 'CatBoost'}
-        except Exception as e:
-            print(f"Error in CatBoost: {e}")
-            return None
+        # Try LSTM first
+        if self.use_torch and self.lstm_model is not None:
+            try:
+                import torch
+                seq = arr.astype(np.float32)
+                # Ensure 9 features
+                if seq.shape[1] < 9:
+                    pad = np.zeros((seq.shape[0], 9 - seq.shape[1]))
+                    seq = np.hstack([seq, pad])
+                elif seq.shape[1] > 9:
+                    seq = seq[:, :9]
+                X = torch.FloatTensor(seq).unsqueeze(0)
+                with torch.no_grad():
+                    prob = float(self.lstm_model(X).item())
+                return self._format_result(prob, 'LSTM')
+            except Exception as e:
+                print(f"  LSTM predict failed: {e}")
 
-    def predict_autoencoder(self, features):
-        if 'autoencoder' not in self.models or not PYTORCH_AVAILABLE:
-            return None
-        try:
-            data = self.models['autoencoder']
-            model = data['model']
-            scaler = data['scaler']
-            threshold = data['threshold']
-            X = scaler.transform([features])
-            X_tensor = torch.FloatTensor(X)
-            with torch.no_grad():
-                recon = model(X_tensor)
-                error = torch.mean((X_tensor - recon) ** 2).item()
-            proba = min(1.0, error / (threshold * 2))
-            return {'fraud_probability': float(proba), 'model': 'Autoencoder', 'reconstruction_error': error}
-        except Exception as e:
-            print(f"Error in Autoencoder: {e}")
-            return None
+        # Heuristic analysis (reliable, domain-driven)
+        return self._heuristic_predict(arr)
 
-    def predict_widedeep(self, features):
-        if 'widedeep' not in self.models or not PYTORCH_AVAILABLE:
-            return None
-        try:
-            data = self.models['widedeep']
-            model = data['model']
-            scaler = data['scaler']
-            X = scaler.transform([features])
-            X_tensor = torch.FloatTensor(X)
-            with torch.no_grad():
-                proba = model(X_tensor).item()
-            return {'fraud_probability': float(proba), 'model': 'Wide & Deep'}
-        except Exception as e:
-            print(f"Error in Wide & Deep: {e}")
-            return None
-
-    def predict_lstm(self, sequence_data):
-        if 'lstm' not in self.models or not PYTORCH_AVAILABLE:
-            return None
-        try:
-            model = self.models['lstm']
-            seq = np.array(sequence_data)
-            # Ensure shape (1, timesteps, features)
-            if seq.ndim == 2:
-                seq = seq[np.newaxis, :, :]
-            X_tensor = torch.FloatTensor(seq)
-            with torch.no_grad():
-                prob = model(X_tensor).item()
-            return {'fraud_probability': float(prob), 'model': 'LSTM'}
-        except Exception as e:
-            print(f"Error in LSTM: {e}")
-            return None
-
-    def predict_isolation_forest(self, features):
-        if 'isolation_forest' not in self.models:
-            return None
-        try:
-            model = self.models['isolation_forest']
-            # IsolationForest returns 1 for normal, -1 for outlier
-            pred = model.predict([features])[0]
-            prob = 0.0 if pred == 1 else 1.0
-            return {'fraud_probability': float(prob), 'model': 'Isolation Forest'}
-        except Exception as e:
-            print(f"Error in Isolation Forest: {e}")
-            return None
-
-    # ---------------------------------------------------------------------
-    # Ensemble prediction
-    # ---------------------------------------------------------------------
-    def predict_ensemble(self, sequence_data, method='weighted'):
-        """Combine predictions from all available models.
-        `method` can be 'weighted' (default) or 'voting'.
+    def _heuristic_predict(self, arr):
         """
-        # Feature vector for tabular models
-        features = self.aggregate_sequence_features(sequence_data)
-        predictions = []
-        # Tabular models
-        lr = self.predict_logistic_regression(features)
-        if lr:
-            predictions.append((lr['fraud_probability'], 0.20, lr['model']))
-        cb = self.predict_catboost(features)
-        if cb:
-            predictions.append((cb['fraud_probability'], 0.35, cb['model']))
-        ae = self.predict_autoencoder(features)
-        if ae:
-            predictions.append((ae['fraud_probability'], 0.15, ae['model']))
-        wd = self.predict_widedeep(features)
-        if wd:
-            predictions.append((wd['fraud_probability'], 0.15, wd['model']))
-        iso = self.predict_isolation_forest(features)
-        if iso:
-            predictions.append((iso['fraud_probability'], 0.10, iso['model']))
-        # Sequence model
-        lstm = self.predict_lstm(sequence_data)
-        if lstm:
-            predictions.append((lstm['fraud_probability'], 0.30, lstm['model']))
-        
-        # Rule-based override for obvious fraud patterns (e.g. high click count, low time)
-        # This catches cases where models might be undertrained or data is synthetic
-        heuristic_result = self._mock_predict(sequence_data)
-        if heuristic_result['fraud_probability'] > 0.8:
-             # If heuristic is very confident it's fraud, force it to be the result
-             # This bypasses weak models that might be predicting 0.0
-             return heuristic_result
+        Rule-based heuristic click fraud detection.
+        Based on the feature definitions from generate_data.py:
+          col0: time_diff     (human: avg ~2.5s, bot: avg ~0.15s)
+          col1: click_x
+          col2: click_y
+          col3: ip_change
+          col4: user_agent_change
+          col5: hour_of_day
+          col6: is_weekend
+          col7: click_velocity (human: 2-15/min, bot: 30-60/min)
+          col8: referrer_entropy (human: 1.5-3.0, bot: 0-0.5)
+        """
+        n_clicks = arr.shape[0]
+        score = 0.0
+        indicators = []
 
-        if not predictions:
-            return heuristic_result
-        if method == 'weighted':
-            total_w = sum(w for _, w, _ in predictions)
-            weighted_prob = sum(p * w for p, w, _ in predictions) / total_w
-        else:  # simple voting (average)
-            weighted_prob = sum(p for p, _, _ in predictions) / len(predictions)
-        # Confidence based on agreement
-        probs = [p for p, _, _ in predictions]
-        std_dev = (sum((p - weighted_prob) ** 2 for p in probs) / len(probs)) ** 0.5
-        confidence = 'HIGH' if std_dev < 0.1 else 'MEDIUM' if std_dev < 0.2 else 'LOW'
-        # Risk level
-        if weighted_prob > 0.7:
-            risk = 'HIGH'
-        elif weighted_prob > 0.4:
-            risk = 'MEDIUM'
-        else:
-            risk = 'LOW'
-        return {
-            'is_fraud': bool(weighted_prob > 0.5),
-            'fraud_probability': float(weighted_prob),
-            'risk_level': risk,
-            'confidence': confidence,
-            'models_used': [name for _, _, name in predictions],
-            'individual_predictions': {name: {'probability': float(p), 'weight': w} for p, w, name in predictions}
-        }
+        # --- TIME DIFF (col 0) ---
+        if arr.shape[1] > 0:
+            time_diffs = arr[:, 0]
+            avg_time = float(np.mean(time_diffs))
+            std_time = float(np.std(time_diffs))
 
-    # ---------------------------------------------------------------------
-    # Public API
-    # ---------------------------------------------------------------------
-    def predict(self, sequence_data, use_ensemble=True):
-        """Main entry point – either ensemble or best single model."""
-        if use_ensemble:
-            return self.predict_ensemble(sequence_data)
-        # fallback to best available single model
-        features = self.aggregate_sequence_features(sequence_data)
-        for fn in [self.predict_catboost, self.predict_widedeep, self.predict_logistic_regression,
-                   self.predict_autoencoder, self.predict_lstm, self.predict_isolation_forest]:
-            res = fn(features if fn.__name__ != 'predict_lstm' else sequence_data)
-            if res:
-                prob = res['fraud_probability']
-                return {
-                    'is_fraud': bool(prob > 0.5),
-                    'fraud_probability': float(prob),
-                    'risk_level': 'HIGH' if prob > 0.7 else 'MEDIUM' if prob > 0.4 else 'LOW',
-                    'model_used': res['model']
-                }
-        return self._mock_predict(sequence_data)
+            if avg_time < 0.2:
+                score += 0.50
+                indicators.append(f"Extremely fast clicks (avg {avg_time:.2f}s)")
+            elif avg_time < 0.5:
+                score += 0.35
+                indicators.append(f"Very fast clicks (avg {avg_time:.2f}s)")
+            elif avg_time < 1.0:
+                score += 0.15
+                indicators.append(f"Fast clicks (avg {avg_time:.2f}s)")
+            elif avg_time < 2.0:
+                score += 0.08
+                indicators.append(f"Moderate click speed")
+            elif avg_time < 3.0:
+                score += 0.03
 
-    # ---------------------------------------------------------------------
-    # Heuristic fallback
-    # ---------------------------------------------------------------------
-    def _mock_predict(self, sequence_data):
-        """Robust heuristic fallback when ML models are unavailable."""
-        if not sequence_data:
-            return {'is_fraud': False, 'fraud_probability': 0.1, 'risk_level': 'LOW', 'model_used': 'Heuristic'}
-        
-        arr = np.array(sequence_data)
-        click_count = len(arr)
-        
-        # Calculate key metrics
-        avg_time_diff = np.mean(arr[:, 0]) if arr.shape[1] > 0 else 1.0
-        std_time_diff = np.std(arr[:, 0]) if arr.shape[1] > 0 else 0.5
-        
-        # Base probability
-        prob = 0.1
-        reasons = []
+            # Very consistent timing = bot
+            if avg_time > 0 and std_time / (avg_time + 1e-9) < 0.1:
+                score += 0.25
+                indicators.append("Unnaturally consistent click timing")
+            elif avg_time > 0 and std_time / (avg_time + 1e-9) < 0.2:
+                score += 0.15
+                indicators.append("Suspiciously consistent timing")
+            elif avg_time > 0 and std_time / (avg_time + 1e-9) < 0.3:
+                score += 0.05
 
-        # 1. High frequency / Low time difference (Bot-like speed)
-        if avg_time_diff < 0.5:
-            prob += 0.4
-            reasons.append("Abnormally fast clicking speed")
-        elif avg_time_diff < 1.0:
-            prob += 0.2
+        # --- CLICK POSITION VARIANCE (cols 1,2) ---
+        # Suspicious patterns have concentrated clicks
+        if arr.shape[1] > 2:
+            x_std = float(np.std(arr[:, 1]))
+            y_std = float(np.std(arr[:, 2]))
+            if x_std < 20 and y_std < 20:
+                score += 0.25
+                indicators.append("Clicks concentrated in tiny area (bot pattern)")
+            elif x_std < 50 and y_std < 50:
+                score += 0.12
+                indicators.append("Limited click position variation (suspicious)")
+            elif x_std < 100 and y_std < 100:
+                score += 0.08
+                indicators.append("Moderate click position variation")
+
+        # --- CLICK VELOCITY (col 7) ---
+        if arr.shape[1] > 7:
+            avg_velocity = float(np.mean(arr[:, 7]))
+            if avg_velocity > 60:
+                score += 0.30
+                indicators.append(f"Extremely high click velocity ({avg_velocity:.0f}/min)")
+            elif avg_velocity > 40:
+                score += 0.25
+                indicators.append(f"Very high click velocity ({avg_velocity:.0f}/min)")
+            elif avg_velocity > 20:
+                score += 0.10
+                indicators.append(f"High click velocity ({avg_velocity:.0f}/min)")
+            elif avg_velocity > 10:
+                score += 0.03
+
+        # --- REFERRER ENTROPY (col 8) ---
+        # This is a KEY pattern indicator - suspicious patterns have low entropy
+        if arr.shape[1] > 8:
+            avg_entropy = float(np.mean(arr[:, 8]))
+            if avg_entropy < 0.3:
+                score += 0.20
+                indicators.append("Very low referrer entropy (bot pattern)")
+            elif avg_entropy < 0.7:
+                score += 0.15
+                indicators.append("Low referrer entropy (suspicious pattern)")
+            elif avg_entropy < 1.0:
+                score += 0.10
+                indicators.append("Below-average referrer entropy")
+            elif avg_entropy < 1.5:
+                score += 0.03
+
+        # --- IP CHANGES (col 3) ---
+        if arr.shape[1] > 3:
+            ip_changes = int(np.sum(arr[:, 3]))
+            if ip_changes > 2:
+                score += 0.30
+                indicators.append(f"Multiple IP changes detected ({ip_changes})")
+            elif ip_changes > 0:
+                score += 0.15
+                indicators.append(f"IP address changed ({ip_changes} time(s))")
+
+        # --- USER AGENT CHANGES (col 4) ---
+        if arr.shape[1] > 4:
+            ua_changes = int(np.sum(arr[:, 4]))
+            if ua_changes > 0:
+                score += 0.20
+                indicators.append(f"User agent changed ({ua_changes} time(s))")
+
+        # --- VOLUME ---
+        if n_clicks > 100:
+            score += 0.15
+            indicators.append(f"High click volume ({n_clicks} clicks)")
+        elif n_clicks > 50:
+            score += 0.08
+
+        # --- SPEED ANALYSIS (clicks per second) ---
+        # Fast interaction is a strong fraud signal
+        if n_clicks > 0 and arr.shape[1] > 0:
+            avg_time = float(np.mean(arr[:, 0]))
+            clicks_per_second = n_clicks / (n_clicks * avg_time + 1e-9)
             
-        # 2. Robotic precision (Low standard deviation in timing)
-        if std_time_diff < 0.05:
-            prob += 0.3
-            reasons.append("Robotic timing precision")
-        elif std_time_diff < 0.2:
-            prob += 0.15
+            # Very fast clicking (bot-like)
+            if n_clicks > 20 and avg_time < 1.0:
+                score += 0.20
+                indicators.append(f"Rapid clicking ({n_clicks} clicks at {avg_time:.2f}s intervals)")
+            # Fast clicking with suspicious pattern
+            elif n_clicks > 5 and avg_time < 3.0:
+                score += 0.10
+                indicators.append(f"Fast interaction speed ({avg_time:.2f}s per click)")
+            # Moderate speed
+            elif n_clicks > 10 and avg_time < 5.0:
+                score += 0.05
+                indicators.append(f"Elevated clicking activity")
 
-        # 3. High click volume in short session
-        if click_count > 50:
-            prob += 0.4
-            reasons.append("Excessive click volume")
-        elif click_count > 20:
-            prob += 0.2
+        # Cap and return
+        prob = min(0.95, score)
+        result = self._format_result(prob, 'Heuristic')
+        if indicators:
+            result['indicators'] = indicators
+        return result
 
-        # Cap probability
-        prob = min(0.99, prob)
-        
+    def _format_result(self, prob, model_used):
+        if prob > 0.75:
+            risk_level = 'CRITICAL'
+            is_fraud = True
+            recommendation = 'BLOCK - Automated bot activity detected'
+        elif prob > 0.5:
+            risk_level = 'HIGH'
+            is_fraud = True
+            recommendation = 'BLOCK - High fraud probability detected'
+        elif prob > 0.3:
+            risk_level = 'MEDIUM'
+            is_fraud = False
+            recommendation = 'MONITOR - Suspicious activity, flag for review'
+        elif prob > 0.15:
+            risk_level = 'LOW'
+            is_fraud = False
+            recommendation = 'MONITOR - Some irregular patterns detected'
+        else:
+            risk_level = 'LOW'
+            is_fraud = False
+            recommendation = 'ALLOW - Normal click behavior'
+
         return {
-            'is_fraud': bool(prob > 0.5),
-            'fraud_probability': float(prob),
-            'risk_level': 'HIGH' if prob > 0.7 else 'MEDIUM' if prob > 0.4 else 'LOW',
-            'model_used': 'Heuristic (Enhanced)',
-            'reasons': reasons
+            'is_fraud': bool(is_fraud),
+            'fraud_probability': round(float(prob), 4),
+            'risk_level': risk_level,
+            'model_used': model_used,
+            'recommendation': recommendation
         }
-
-if __name__ == "__main__":
-    detector = ClickFraudDetector()
-    # simple demo (can be removed)
-    demo_seq = [
-        [0.1, 500, 300, 0, 0, 14, 0, 50],
-        [0.12, 502, 301, 0, 0, 14, 0, 52],
-        [0.11, 501, 299, 0, 0, 14, 0, 51],
-        [0.13, 503, 302, 0, 0, 14, 0, 49]
-    ]
-    print(detector.predict(demo_seq))
-

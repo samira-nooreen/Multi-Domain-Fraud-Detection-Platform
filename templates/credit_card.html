@@ -328,6 +328,22 @@
     </div>
 
     <script>
+        // Ensure result card is hidden on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            const resultCard = document.getElementById("resultCard");
+            if (resultCard) {
+                resultCard.style.display = "none";
+            }
+        });
+        
+        // Ensure result card is hidden on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            const resultCard = document.getElementById("resultCard");
+            if (resultCard) {
+                resultCard.style.display = "none";
+            }
+        });
+        
         document.getElementById('creditCardForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -404,3 +420,4 @@
 </body>
 
 </html>
+

@@ -1,0 +1,20 @@
+model type: <class 'dict'>
+keys: ['model', 'scaler', 'feature_cols']
+model: <class 'sklearn.svm._classes.SVC'>
+feature_cols: ['length', 'special_chars', 'whois_age', 'token_entropy']
+classes: [0 1]
+URL: https://google.com
+  features: {'length': 18, 'special_chars': 4, 'whois_age': 500, 'token_entropy': 3.5724312513221195}
+  X_scaled: [[-2.2376704  -8.18877258 -0.43837982 -2.01475555]]
+  proba: [0.03132319 0.96867681]
+  predict: 1
+URL: http://paypal.tk/verify
+  features: {'length': 23, 'special_chars': 5, 'whois_age': 2000, 'token_entropy': 3.7294461949052566}
+  X_scaled: [[-1.74240787 -4.2299751   0.81922125 -1.62977951]]
+  proba: [0.04008769 0.95991231]
+  predict: 1
+URL: http://x.yz/abc?q=1&p=2
+  features: {'length': 23, 'special_chars': 9, 'whois_age': 2000, 'token_entropy': 4.0559581516151235}
+  X_scaled: [[-1.74240787 11.6052148   0.81922125 -0.82922335]]
+  proba: [0.03132316 0.96867684]
+  predict: 1

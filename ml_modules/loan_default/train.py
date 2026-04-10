@@ -71,14 +71,17 @@ def train_models():
         
     # 3. Define Models
     models = {
-        'LightGBM': Pipeline(steps=[
+        'LogisticRegression': Pipeline(steps=[
             ('preprocessor', preprocessor),
-            ('classifier', lgb.LGBMClassifier(
+            ('classifier', LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'))
+        ]),
+        'GradientBoosting': Pipeline(steps=[
+            ('preprocessor', preprocessor),
+            ('classifier', GradientBoostingClassifier(
                 n_estimators=200,
                 learning_rate=0.1,
                 max_depth=5,
-                random_state=42,
-                class_weight='balanced'
+                random_state=42
             ))
         ])
     }

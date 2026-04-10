@@ -1,9 +1,15 @@
 import random
 import re
+import requests
+import json
 
 class MDFDPBot:
     def __init__(self):
         self.context = {}
+        self.api_key = "sk-poe-alUfVVfBG_mKCOWLN2mV4vERpQd2lKSPnXlcAnpjzXc"
+        self.api_url = "https://api.poe.com/v1/chat/completions"
+        
+        # Fallback rule-based system
         self.intents = {
             'greeting': {
                 'patterns': [r'hi', r'hello', r'hey', r'greetings', r'start'],
@@ -37,7 +43,7 @@ class MDFDPBot:
             'credit_card': {
                 'patterns': [r'credit card', r'card fraud'],
                 'responses': [
-                    "Our Credit Card module detects anomalies in spending behavior using Isolation Forest and other ML techniques to prevent unauthorized charges.",
+                    "Our Credit Card module detects anomalies in spending behavior using Isolation Forest and Random Forest ensemble to prevent unauthorized charges.",
                     "It looks for unusual amounts, locations, or merchant categories."
                 ]
             },
@@ -62,10 +68,58 @@ class MDFDPBot:
             "Could you be more specific? I'm here to help with the MDFDP platform."
         ]
 
+    def get_ai_response(self, message):
+        """Get response from Poe AI API"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Try different models that might be available
+            models_to_try = ["gpt-3.5-turbo", "gpt-4", "claude-instant", "claude"]
+            
+            for model in models_to_try:
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are MDFDP (Multi-Domain Fraud Detection Platform) Bot, an intelligent assistant specialized in fraud detection. You help users understand fraud detection modules including UPI fraud, credit card fraud, fake news, phishing, spam, loan default, insurance fraud, click fraud, fake profiles, and document forgery. Provide helpful, accurate responses about fraud detection, machine learning models, and platform features. Keep responses concise and professional."
+                        },
+                        {
+                            "role": "user",
+                            "content": message
+                        }
+                    ],
+                    "max_tokens": 500,
+                    "temperature": 0.7
+                }
+                
+                response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return data['choices'][0]['message']['content']
+                elif response.status_code != 402:  # Skip subscription errors, try next model
+                    print(f"Model {model} failed with status {response.status_code}")
+            
+            return None
+                
+        except Exception as e:
+            print(f"AI API Error: {e}")
+            return None
+
     def get_response(self, message):
+        """Get response - try AI first, fallback to rule-based"""
         message = message.lower()
         
-        # Check intents
+        # Try AI response first
+        ai_response = self.get_ai_response(message)
+        if ai_response:
+            return ai_response
+        
+        # Fallback to rule-based system
         for intent, data in self.intents.items():
             for pattern in data['patterns']:
                 if re.search(pattern, message):

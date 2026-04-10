@@ -1,0 +1,8 @@
+/* Force hide result cards by default - using !important to override any inline styles */
+.result-card {
+    display: none !important;
+}
+
+.result-card.show {
+    display: block !important;
+}

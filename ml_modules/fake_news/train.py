@@ -1,3 +1,7 @@
+"""
+Fake News Detection - Naive Bayes Training
+Algorithm: Naive Bayes with TF-IDF and Rule-based Features
+"""
 import pandas as pd
 import numpy as np
 import pickle
@@ -7,6 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score, classification_report
+import warnings
+warnings.filterwarnings('ignore')
 
 def extract_rule_features(text):
     """Extract rule-based features for fake news detection"""
@@ -53,8 +59,8 @@ def train_model():
                 'You won\'t believe this one trick to lose 50 lbs in a day!',
                 'Local election results confirmed by officials.',
                 'Secret society controls the weather - whistleblowers speak out!'
-            ],
-            'label': [0, 1, 0, 1, 0, 1]  # 0 = Real, 1 = Fake
+            ] * 20,
+            'label': [0, 1, 0, 1, 0, 1] * 20  # 0 = Real, 1 = Fake
         }
         df = pd.DataFrame(data)
     else:
@@ -63,7 +69,6 @@ def train_model():
     print(f"Loaded {len(df)} records")
     
     # Preprocessing
-    # Assuming 'text' and 'label' columns exist
     if 'text' not in df.columns or 'label' not in df.columns:
         print("❌ Dataset must contain 'text' and 'label' columns")
         return

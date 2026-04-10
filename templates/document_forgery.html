@@ -321,6 +321,22 @@
     </div>
 
     <script>
+        // Ensure result card is hidden on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            const resultCard = document.getElementById("resultCard");
+            if (resultCard) {
+                resultCard.style.display = "none";
+            }
+        });
+        
+        // Ensure result card is hidden on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            const resultCard = document.getElementById("resultCard");
+            if (resultCard) {
+                resultCard.style.display = "none";
+            }
+        });
+        
         document.getElementById('documentForgeryForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -366,7 +382,7 @@
             const resultTitle = document.getElementById('resultTitle');
             const resultSubtitle = document.getElementById('resultSubtitle');
             
-            const isForged = result.is_forged;
+            const isForged = result.is_forged || result.isForged || false;
             
             // Set header based on authenticity
             if (isForged) {
@@ -393,13 +409,12 @@
             
             // Set analysis content
             document.getElementById('forgeryAnalysis').textContent = result.analysis_details || 'No specific forgery analysis available.';
-            document.getElementById('recommendation').textContent = result.recommendation || 
-                (isForged ? 'This document may be forged. Further verification is recommended.' : 'No action required. Document appears authentic.');
-        }
-    </script>
-</body>
-
-</html>         (isForged ? 'This document may be forged. Further verification is recommended.' : 'No action required. Document appears authentic.');
+            
+            // Set recommendation based on forgery status
+            const recommendationText = isForged ? 
+                'This document may be forged. Further verification is recommended.' : 
+                'No action required. Document appears authentic.';
+            document.getElementById('recommendation').textContent = recommendationText;
         }
     </script>
 </body>

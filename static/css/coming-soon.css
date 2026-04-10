@@ -1,0 +1,155 @@
+/* Coming Soon Card Styles */
+.coming-soon-card {
+  position: relative;
+  opacity: 0.7;
+  filter: blur(0.5px);
+  transition: all 0.3s ease;
+}
+
+.coming-soon-card:hover {
+  opacity: 0.85;
+  filter: blur(0px);
+  transform: translateY(-5px);
+}
+
+.coming-soon-card::before {
+  content: 'COMING SOON';
+  position: absolute;
+  top: 15px;
+  right: -35px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 5px 40px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  transform: rotate(45deg);
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
+.coming-soon-btn {
+  background: linear-gradient(135deg, #6b7280, #4b5563) !important;
+  cursor: not-allowed !important;
+  opacity: 0.8;
+}
+
+.coming-soon-btn:hover {
+  transform: none !important;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3) !important;
+}
+
+/* Coming Soon Modal Styles */
+.coming-soon-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.coming-soon-modal.show {
+  display: flex;
+}
+
+.coming-soon-content {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 500px;
+  width: 90%;
+  border: 2px solid #f59e0b;
+  box-shadow: 0 20px 60px rgba(245, 158, 11, 0.3);
+  text-align: center;
+  animation: slideUp 0.4s ease;
+}
+
+.coming-soon-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  animation: bounce 1s infinite;
+}
+
+.coming-soon-content h2 {
+  color: #f59e0b;
+  font-size: 2rem;
+  margin-bottom: 15px;
+  font-weight: 700;
+}
+
+.coming-soon-content p {
+  color: #e5e7eb;
+  font-size: 1.1rem;
+  margin-bottom: 25px;
+}
+
+.coming-soon-features {
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.coming-soon-features h3 {
+  color: #f59e0b;
+  font-size: 1.2rem;
+  margin-bottom: 15px;
+}
+
+.coming-soon-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.coming-soon-features li {
+  color: #e5e7eb;
+  padding: 8px 0;
+  font-size: 1rem;
+}
+
+.coming-soon-close-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+}
+
+.coming-soon-close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}

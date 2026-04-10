@@ -324,42 +324,70 @@
     </div>
 
     <script>
-        document.getElementById('fakeNewsForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+        // Ensure result card is hidden on page load and attach form handler
+        document.addEventListener("DOMContentLoaded", function() {
+            const resultCard = document.getElementById("resultCard");
+            if (resultCard) {
+                resultCard.classList.remove('show');
+                resultCard.style.display = "none";
+            }
             
-            // Show result card and loading
-            const resultCard = document.getElementById('resultCard');
-            const loading = document.getElementById('loading');
-            
-            resultCard.classList.add('show');
-            loading.classList.add('show');
-            
-            // Collect form data
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-            
-            try {
-                const response = await fetch('/detect_fake_news', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
+            // Attach form submit handler
+            const form = document.getElementById('fakeNewsForm');
+            if (form) {
+                console.log('Fake news form found, attaching handler...');
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    console.log('Form submitted!');
+                    
+                    // Show loading
+                    const resultCard = document.getElementById('resultCard');
+                    const loading = document.getElementById('loading');
+                    
+                    loading.classList.add('show');
+                    if (resultCard) {
+                        resultCard.classList.remove('show');
+                        resultCard.style.display = 'none';
+                    }
+                    
+                    // Collect form data
+                    const formData = new FormData(e.target);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    console.log('Form data:', { textLength: data.text?.length, source: data.source });
+                    
+                    try {
+                        console.log('Sending request to /detect_fake_news...');
+                        const response = await fetch('/detect_fake_news', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        console.log('Response status:', response.status);
+                        const result = await response.json();
+                        console.log('Response:', result);
+                        
+                        // Hide loading
+                        loading.classList.remove('show');
+                        
+                        if (result.status === 'success') {
+                            displayResult(result.result);
+                            resultCard.classList.add('show');
+                            resultCard.style.display = 'block';
+                        } else {
+                            alert('Error: ' + (result.message || 'Unknown error occurred'));
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        loading.classList.remove('show');
+                        alert('Error analyzing article: ' + error.message);
+                    }
                 });
-                
-                const result = await response.json();
-                
-                // Hide loading
-                loading.classList.remove('show');
-                
-                if (result.status === 'success') {
-                    displayResult(result.result);
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            } catch (error) {
-                loading.classList.remove('show');
-                alert('Error analyzing article: ' + error.message);
+            } else {
+                console.error('Fake news form not found!');
             }
         });
         
@@ -386,13 +414,13 @@
             
             // Set details
             document.getElementById('fakeProb').textContent = (result.fake_probability * 100).toFixed(2) + '%';
-            document.getElementById('credibilityScore').textContent = (result.credibility_score * 100).toFixed(2) + '%';
-            document.getElementById('confidence').textContent = (result.confidence * 100).toFixed(2) + '%';
+            document.getElementById('credibilityScore').textContent = (result.credibility_score || 0).toFixed(2) + '%';
+            document.getElementById('confidence').textContent = (result.confidence_percent || 0).toFixed(2) + '%';
             
             // Set analysis content
             document.getElementById('detailedAnalysis').textContent = result.detailed_analysis || 'No detailed analysis available.';
             document.getElementById('recommendation').textContent = result.recommendation || 
-                (isFake ? 'Verify this information with trusted sources before sharing.' : 'No action required. Article appears authentic.');
+                (isFake ? '⚠️ WARNING: This article contains fake news indicators. Do not share without verification.' : '✅ No action required. Article appears authentic.');
         }
     </script>
 </body>

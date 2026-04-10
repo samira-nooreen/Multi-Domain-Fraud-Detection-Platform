@@ -8,8 +8,9 @@ import joblib
 import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.neural_network import MLPRegressor
-from sklearn.metrics import classification_report, roc_auc_score, mean_squared_error
+import xgboost as xgb
+from sklearn.metrics import classification_report, roc_auc_score, confusion_matrix
+import matplotlib.pyplot as plt
 
 def train_models():
     # Get script directory
@@ -36,6 +37,11 @@ def train_models():
         'police_report', 'linked_claims'
     ]
     
+    # Ensure columns exist
+    for col in features:
+        if col not in df.columns:
+            df[col] = 0
+            
     X = df[features]
     y = df['is_fraud']
     
@@ -45,37 +51,36 @@ def train_models():
     
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
     
-    # Train Autoencoder (Unsupervised Anomaly Detection)
-    # Train only on NON-FRAUD data to learn "normal" patterns
-    print("\nTraining Autoencoder...")
-    X_normal = X_scaled[y == 0]
-    
-    # Simple Autoencoder using MLPRegressor
-    # Input -> Hidden (Bottleneck) -> Output
-    autoencoder = MLPRegressor(
-        hidden_layer_sizes=(16, 8, 16), # Bottleneck at 8
-        activation='relu',
-        solver='adam',
-        max_iter=200,
-        random_state=42
+    # Train XGBoost Classifier
+    print("\nTraining XGBoost Classifier...")
+    model = xgb.XGBClassifier(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=6,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric='logloss'
     )
     
-    # Fit to reconstruct input
-    autoencoder.fit(X_normal, X_normal)
+    model.fit(X_train, y_train)
     
-    # Calculate reconstruction error threshold
-    reconstructions = autoencoder.predict(X_normal)
-    mse = np.mean(np.power(X_normal - reconstructions, 2), axis=1)
-    threshold = np.percentile(mse, 95) # 95th percentile of normal error
+    # Evaluate
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
     
-    print(f"Autoencoder trained. Anomaly Threshold (MSE): {threshold:.4f}")
+    print("\n" + "="*50)
+    print("MODEL EVALUATION")
+    print("="*50)
+    print(classification_report(y_test, y_pred, target_names=['Legitimate', 'Fraud']))
+    print("Confusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print(f"ROC-AUC Score: {roc_auc_score(y_test, y_prob):.4f}")
     
     # 5. Save Models
-    joblib.dump(autoencoder, os.path.join(base_dir, 'insurance_autoencoder.pkl'))
+    joblib.dump(model, os.path.join(base_dir, 'insurance_model.pkl'))
     joblib.dump(scaler, os.path.join(base_dir, 'insurance_scaler.pkl'))
-    joblib.dump(threshold, os.path.join(base_dir, 'insurance_threshold.pkl'))
     
-    print("Models saved successfully.")
+    print("Models saved successfully as 'insurance_model.pkl' and 'insurance_scaler.pkl'")
 
 if __name__ == "__main__":
     train_models()

@@ -20,8 +20,26 @@ import qrcode
 import io
 import base64
 import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from currency_config import format_amount, get_currency_symbol
 from risk_engine import RiskCalculator, DeviceFingerprint
+
+# Try to load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, manually parse .env file
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
 
 # Import database module
 from database import *
@@ -463,7 +481,7 @@ def detect_credit():
         result = detector.predict(transaction_data)
         
         # Add currency formatting
-        currency = 'USD'  # Default currency
+        currency = 'INR'  # Changed from USD to INR
         amount = float(data.get('amount', 0))
         result['formatted_amount'] = format_amount(amount, currency)
         
@@ -571,18 +589,71 @@ def detect_click():
         data = request.json or {}
         from ml_modules.click_fraud.predict import ClickFraudDetector
         detector = ClickFraudDetector(model_dir='ml_modules/click_fraud')
+        
+        # Get sequence directly if provided
         seq = data.get('sequence')
+        
         if not seq:
-            # Attempt to construct a synthetic sequence from provided fields
+            # Fallback: Construct a synthetic sequence from provided fields
             click_count = int(data.get('click_count', 0))
             time_spent = float(data.get('time_spent', 0))
+            
+            if click_count <= 0 or time_spent <= 0:
+                return jsonify({'status': 'error', 'message': 'Please provide valid click count and time spent'}), 400
+            
             # average time diff per click (avoid division by zero)
-            avg_time = time_spent / click_count if click_count else 0
-            # Use placeholder values for x, y, ip_change, ua_change, hour, weekend, velocity
+            avg_time = time_spent / click_count
+            
+            # Features: [time_diff, click_x, click_y, ip_change, user_agent_change,
+            #            hour_of_day, is_weekend, click_velocity, referrer_entropy]
+            velocity = click_count / (time_spent / 60) if time_spent > 0 else 0
+            
+            # Get click pattern if provided
+            click_pattern = data.get('click_pattern', 'normal')
+            ip_changes = int(data.get('ip_changes', 0))
+            
             seq = []
-            for _ in range(click_count):
-                seq.append([avg_time, 0, 0, 0, 0, 0, 0, 0])
-        result = detector.predict(seq, use_ensemble=True)
+            from datetime import datetime
+            hour = datetime.now().hour
+            is_weekend = 1 if datetime.now().weekday() >= 5 else 0
+            
+            import random
+            for i in range(click_count):
+                if click_pattern == 'fast':
+                    # Automated bot: very consistent timing, concentrated clicks, low entropy
+                    time_diff = avg_time * (0.85 + random.random() * 0.3)  # Very consistent
+                    click_x = 400 + random.uniform(-20, 20)  # Highly concentrated
+                    click_y = 300 + random.uniform(-20, 20)
+                    referrer_entropy = random.uniform(0, 0.5)  # Very low entropy
+                elif click_pattern == 'suspicious':
+                    # Suspicious: moderate variation, lower entropy
+                    time_diff = avg_time * (0.5 + random.random())
+                    click_x = 400 + random.uniform(-50, 50)
+                    click_y = 300 + random.uniform(-50, 50)
+                    referrer_entropy = random.uniform(0.3, 1.2)
+                else:
+                    # Normal human: varied timing, wide spread
+                    time_diff = avg_time + random.uniform(-avg_time*0.25, avg_time*0.25)
+                    click_x = random.uniform(100, 900)
+                    click_y = random.uniform(100, 700)
+                    referrer_entropy = random.uniform(1.5, 3.0)
+                
+                ip_change = 1 if (i == 0 and ip_changes > 0) else 0
+                ua_change = 1 if (ip_changes > 3 and random.random() < 0.3) else 0
+                
+                seq.append([
+                    max(0.01, time_diff),
+                    max(0, click_x),
+                    max(0, click_y),
+                    ip_change,
+                    ua_change,
+                    hour,
+                    is_weekend,
+                    max(0, velocity),
+                    max(0, referrer_entropy)
+                ])
+        
+        result = detector.predict(seq)
         
         # Log to database if user is logged in
         if 'user_id' in session:
@@ -591,7 +662,12 @@ def detect_click():
                 log_fraud_analysis(
                     user_id=user['id'],
                     module_name='Click Fraud',
-                    input_data={'sequence_length': len(seq) if seq else 0},
+                    input_data={
+                        'sequence_length': len(seq) if seq else 0,
+                        'click_count': data.get('click_count', 0),
+                        'time_spent': data.get('time_spent', 0),
+                        'click_pattern': data.get('click_pattern', 'unknown')
+                    },
                     result_data=result,
                     fraud_probability=result.get('fraud_probability', 0),
                     risk_level=result.get('risk_level', 'UNKNOWN')
@@ -599,6 +675,8 @@ def detect_click():
         
         return jsonify({'status': 'success', 'module': 'Click Fraud', 'result': result})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # ==================== FAKE NEWS DETECTION ====================
@@ -667,6 +745,270 @@ def detect_fake_news():
         }), 500
 
 
+# ==================== EMAIL CONFIGURATION ====================
+# Email configuration for sending reports
+# Sensitive data is loaded from .env file with optional encryption
+
+def _load_email_config():
+    """Load email configuration with decryption support"""
+    config = {
+        'smtp_server': 'smtp.gmail.com',
+        'smtp_port': 587,
+        'sender_email': os.getenv('EMAIL_SENDER', 'your-email@gmail.com'),
+        'sender_password': os.getenv('EMAIL_PASSWORD', ''),
+        'recipient_email': os.getenv('EMAIL_RECIPIENT', 'email-Boldx02@gmail.com')
+    }
+    
+    # Check if encrypted password is used
+    if os.getenv('EMAIL_ENCRYPTION_ENABLED') == 'true':
+        try:
+            from cryptography.fernet import Fernet
+            
+            encrypted_password = os.getenv('EMAIL_PASSWORD_ENCRYPTED', '')
+            key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env.key')
+            
+            if encrypted_password and os.path.exists(key_file):
+                # Read encryption key
+                with open(key_file, 'r') as f:
+                    key = f.read().strip()
+                
+                # Decrypt password
+                fernet = Fernet(key.encode())
+                config['sender_password'] = fernet.decrypt(encrypted_password.encode()).decode()
+                print("✅ Email password decrypted successfully")
+            else:
+                print("⚠️  Encrypted password enabled but key file not found")
+        except ImportError:
+            print("⚠️  cryptography module not installed. Run: pip install cryptography")
+        except Exception as e:
+            print(f"⚠️  Password decryption failed: {e}")
+    
+    return config
+
+EMAIL_CONFIG = _load_email_config()
+
+def send_report_email(report_data):
+    """Send fraud report via email"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_CONFIG['sender_email']
+        msg['To'] = EMAIL_CONFIG['recipient_email']
+        msg['Subject'] = f"🚨 Fraud Report: {report_data.get('title', 'Suspicious Activity')}"
+        
+        # Email body
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2 style="color: #e74c3c;">🚨 New Fraud Report Submitted</h2>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h3>Report Details:</h3>
+                <p><strong>Title:</strong> {report_data.get('title', 'N/A')}</p>
+                <p><strong>Category:</strong> {report_data.get('category', 'N/A')}</p>
+                <p><strong>Source:</strong> {report_data.get('source', 'N/A')}</p>
+                <p><strong>Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                
+                <h3>Description:</h3>
+                <p style="background: white; padding: 15px; border-left: 4px solid #e74c3c;">
+                    {report_data.get('description', 'N/A')}
+                </p>
+                
+                {f'<p><strong>Evidence File:</strong> {report_data.get("filename", "N/A")}</p>' if report_data.get('filename') else ''}
+            </div>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107;">
+                <h3>⚠️ Risk Assessment:</h3>
+                <p><strong>Risk Score:</strong> {report_data.get('risk_score', 'Pending')}</p>
+                <p><strong>Action:</strong> {report_data.get('action', 'Flagged for review')}</p>
+            </div>
+            
+            <p style="color: #6c757d; font-size: 12px; margin-top: 30px;">
+                This is an automated notification from MDFDP - Multi-Domain Fraud Detection Platform
+            </p>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        # Connect to SMTP server and send
+        server = smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port'])
+        server.starttls()
+        server.login(EMAIL_CONFIG['sender_email'], EMAIL_CONFIG['sender_password'])
+        text = msg.as_string()
+        server.sendmail(EMAIL_CONFIG['sender_email'], EMAIL_CONFIG['recipient_email'], text)
+        server.quit()
+        
+        print(f"✅ Report email sent successfully to {EMAIL_CONFIG['recipient_email']}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to send report email: {e}")
+        return False
+
+# ==================== FRAUD REPORT SUBMISSION ====================
+@app.route('/submit_report', methods=['POST'])
+def submit_report():
+    """Handle fraud report submission and send email notification (No login required)"""
+    try:
+        data = request.form
+        
+        report_data = {
+            'title': data.get('title', 'Suspicious Activity'),
+            'description': data.get('description', ''),
+            'source': data.get('source', ''),
+            'category': data.get('category', 'UPI Fraud'),
+            'risk_score': 'Pending AI Analysis',
+            'action': 'Submitted for review',
+            'submitted_by': session.get('user_id', 'Anonymous User'),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Handle file upload if present
+        if 'evidence' in request.files:
+            file = request.files['evidence']
+            if file and file.filename:
+                # Save file to uploads directory
+                upload_dir = 'uploads/reports'
+                os.makedirs(upload_dir, exist_ok=True)
+                filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+                file.save(os.path.join(upload_dir, filename))
+                report_data['filename'] = filename
+        
+        # Perform AI Analysis on the report
+        ai_analysis = perform_ai_analysis(report_data)
+        report_data['risk_score'] = ai_analysis.get('risk_score', 'Medium (50/100)')
+        report_data['ai_confidence'] = ai_analysis.get('confidence', '85%')
+        report_data['detected_patterns'] = ai_analysis.get('patterns', [])
+        
+        # Save to database
+        if 'user_id' in session:
+            try:
+                user = get_user_by_id(session['user_id'])
+                if user:
+                    log_fraud_analysis(
+                        user_id=user['id'],
+                        module_name='Fraud Report',
+                        input_data={'title': report_data['title'], 'category': report_data['category']},
+                        result_data={'status': 'submitted', 'risk_score': report_data['risk_score']},
+                        fraud_probability=float(ai_analysis.get('confidence', '85').replace('%', '')) / 100,
+                        risk_level=ai_analysis.get('risk_level', 'MEDIUM')
+                    )
+            except Exception as db_error:
+                print(f"Database logging error (non-critical): {db_error}")
+                # Continue even if database logging fails
+        
+        # Send email notification
+        email_sent = False
+        try:
+            email_sent = send_report_email(report_data)
+        except Exception as email_error:
+            print(f"Email sending error (non-critical): {email_error}")
+            email_sent = False
+            # Continue even if email fails - report is still processed
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Report submitted successfully',
+            'email_sent': email_sent,
+            'report_id': datetime.now().strftime('%Y%m%d%H%M%S'),
+            'ai_analysis': ai_analysis
+        })
+        
+    except Exception as e:
+        print(f"Report submission error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+def perform_ai_analysis(report_data):
+    """Perform AI analysis on the submitted report"""
+    try:
+        title = report_data.get('title', '').lower()
+        description = report_data.get('description', '').lower()
+        category = report_data.get('category', '')
+        source = report_data.get('source', '').lower()
+        
+        # Combine all text for analysis
+        full_text = f"{title} {description} {source}"
+        
+        # Detect fraud patterns using keyword analysis
+        patterns = []
+        risk_score = 50  # Default medium risk
+        confidence = 75
+        
+        # UPI Fraud patterns
+        upi_keywords = ['upi', 'payment', 'transaction', 'bank', 'account', 'money', 'transfer', 'gpay', 'phonepe', 'paytm']
+        if any(keyword in full_text for keyword in upi_keywords):
+            patterns.append('UPI Payment Pattern Detected')
+            risk_score = max(risk_score, 75)
+            confidence = 85
+        
+        # Phishing patterns
+        phishing_keywords = ['link', 'url', 'click', 'login', 'password', 'verify', 'account suspended', 'urgent', 'http']
+        if any(keyword in full_text for keyword in phishing_keywords):
+            patterns.append('Phishing Indicators Found')
+            risk_score = max(risk_score, 80)
+            confidence = 88
+        
+        # Social Engineering patterns
+        social_keywords = ['fake', 'scam', 'impersonat', 'fraud', 'identity', 'profile', 'instagram', 'facebook', 'whatsapp']
+        if any(keyword in full_text for keyword in social_keywords):
+            patterns.append('Social Engineering Detected')
+            risk_score = max(risk_score, 70)
+            confidence = 82
+        
+        # SMS/Phone fraud patterns
+        sms_keywords = ['sms', 'message', 'call', 'phone', 'number', 'otp', 'verification code']
+        if any(keyword in full_text for keyword in sms_keywords):
+            patterns.append('SMS/Phone Fraud Pattern')
+            risk_score = max(risk_score, 65)
+            confidence = 80
+        
+        # High urgency keywords (increase risk)
+        urgency_keywords = ['urgent', 'immediate', 'asap', 'emergency', 'critical', 'alert']
+        if any(keyword in full_text for keyword in urgency_keywords):
+            patterns.append('High Urgency Indicators')
+            risk_score = min(risk_score + 10, 95)
+            confidence = min(confidence + 5, 95)
+        
+        # Determine risk level
+        if risk_score >= 80:
+            risk_level = 'HIGH'
+        elif risk_score >= 60:
+            risk_level = 'MEDIUM'
+        else:
+            risk_level = 'LOW'
+        
+        # If no patterns detected, lower the risk
+        if not patterns:
+            patterns.append('No specific fraud patterns detected')
+            risk_score = min(risk_score, 45)
+            confidence = 70
+            risk_level = 'LOW'
+        
+        return {
+            'risk_score': f"{risk_level} ({risk_score}/100)",
+            'risk_level': risk_level,
+            'confidence': f"{confidence}%",
+            'patterns': patterns,
+            'recommendation': 'Flagged for manual review' if risk_score >= 70 else 'Monitoring'
+        }
+        
+    except Exception as e:
+        print(f"AI Analysis error: {e}")
+        return {
+            'risk_score': 'Medium (50/100)',
+            'risk_level': 'MEDIUM',
+            'confidence': '75%',
+            'patterns': ['Analysis in progress'],
+            'recommendation': 'Pending review'
+        }
+
 # ==================== SPAM EMAIL DETECTION ====================
 @app.route('/detect_spam', methods=['GET', 'POST'])
 @login_required
@@ -676,6 +1018,14 @@ def detect_spam():
     
     try:
         data = request.json
+        
+        # Force reload module to avoid caching
+        import importlib
+        import sys
+        module_name = 'ml_modules.spam_email.predict'
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+        
         from ml_modules.spam_email.predict import SpamDetector
         detector = SpamDetector(
             model_path='ml_modules/spam_email/spam_model.pkl',
@@ -690,6 +1040,14 @@ def detect_spam():
         full_text = f"From: {sender_email}\n\n{email_content}"
         
         result = detector.predict(full_text)
+        
+        # Debug output
+        print(f"SPAM DETECTION DEBUG:")
+        print(f"  Sender: {sender_email}")
+        print(f"  Content length: {len(email_content)}")
+        print(f"  Spam: {result.get('is_spam')}")
+        print(f"  Probability: {result.get('spam_probability')}")
+        print(f"  Risk: {result.get('risk_level')}")
         
         # Log to database if user is logged in
         if 'user_id' in session:
@@ -706,6 +1064,9 @@ def detect_spam():
         
         return jsonify({'status': 'success', 'module': 'Spam Email', 'result': result})
     except Exception as e:
+        print(f"SPAM ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # ==================== PHISHING URL DETECTION ====================
@@ -989,6 +1350,23 @@ def profile():
                            activity=activity,
                            compliance=compliance,
                            privacy=privacy)
+
+# ==================== NEWS API ====================
+@app.route('/api/news')
+def api_news():
+    """Get latest fraud news"""
+    try:
+        from ml_modules.news_aggregator import get_latest_news
+        limit = request.args.get('limit', 10, type=int)
+        news = get_latest_news(limit)
+        return jsonify({
+            'status': 'success',
+            'news': news,
+            'count': len(news),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 # ==================== API STATUS ====================
 @app.route('/api/status')
 def api_status():
@@ -1444,6 +1822,7 @@ def chat():
 if __name__ == '__main__':
     # Ensure ml_modules directory exists
     os.makedirs('ml_modules', exist_ok=True)
-    
+
     # Run the Flask app with SocketIO
-    socketio.run(app, debug=True, host='127.0.0.1', port=5000)
+    # use_reloader=False prevents the watchdog from scanning venv dirs endlessly
+    socketio.run(app, debug=True, host='127.0.0.1', port=5000, use_reloader=False)

@@ -1,5 +1,5 @@
 """
-Phishing URL Detection - XGBoost Training
+Phishing URL Detection - SVM Training
 """
 import pandas as pd
 import numpy as np
@@ -7,9 +7,10 @@ import math
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
 import joblib
 import os
-import xgboost as xgb
 
 def get_entropy(text):
     """Calculate Shannon entropy of text"""
@@ -40,12 +41,13 @@ def simulate_whois_age(row):
         return np.random.randint(365, 3650)
 
 def train_model():
-    print("🚀 Starting Phishing URL Detection Training...")
+    print("🚀 Starting Phishing URL Detection Training (SVM)...")
     
     # Get the directory of the current script
     base_dir = os.path.dirname(os.path.abspath(__file__))
     data_path = os.path.join(base_dir, 'phishing_data.csv')
     model_path = os.path.join(base_dir, 'phishing_model.pkl')
+    scaler_path = os.path.join(base_dir, 'phishing_scaler.pkl')
     
     if not os.path.exists(data_path):
         print("⚠️ Dataset not found. Generating dummy data...")
@@ -70,7 +72,6 @@ def train_model():
     df['token_entropy'] = df['url'].apply(get_entropy)
     
     # 4. Whois Age (Simulated for theory/training purposes)
-    # In a real scenario, this would be fetched via WHOIS API
     df['whois_age'] = df.apply(simulate_whois_age, axis=1)
     
     # Features to use
@@ -81,19 +82,19 @@ def train_model():
     # Split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # Train XGBoost
-    print("⚡ Training XGBoost Classifier...")
-    model = xgb.XGBClassifier(
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=5,
-        use_label_encoder=False,
-        eval_metric='logloss'
-    )
-    model.fit(X_train, y_train)
+    # Scale features (Important for SVM)
+    print("⚖️ Scaling features...")
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train SVM
+    print("⚡ Training Support Vector Machine (SVM)...")
+    model = SVC(kernel='rbf', C=1.0, probability=True, random_state=42)
+    model.fit(X_train_scaled, y_train)
     
     # Evaluate
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(X_test_scaled)
     acc = accuracy_score(y_test, y_pred)
     print(f"✅ Accuracy: {acc:.2%}")
     print("\nClassification Report:")
@@ -102,6 +103,7 @@ def train_model():
     # Save Model
     model_data = {
         'model': model,
+        'scaler': scaler,
         'feature_cols': feature_cols
     }
     joblib.dump(model_data, model_path)
