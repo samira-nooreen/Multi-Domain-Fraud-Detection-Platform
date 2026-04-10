@@ -1,0 +1,123 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+LICENSE
+docs/
+
+# Test files
+test_*.py
+test_*.txt
+test_*.json
+test_*.out
+*_test.py
+tests/
+
+# Debug/Log files
+*.log
+app_startup*.txt
+debug_*.txt
+debug_*.log
+*_out.txt
+trigger_*.txt
+trigger_*.log
+smoke_*.txt
+smoke_*.py
+app_startup_err.txt
+
+# Backup files
+*.backup
+*.corrupted.backup
+*_backup.py
+
+# Data files (keep model files)
+*.csv
+*.npy
+data/
+logs/
+
+# Keep these model directories
+# ml_modules/*/*.pkl - KEEP
+# ml_modules/*/*.csv - KEEP for some modules
+
+# Database
+*.sqlite3
+*.db
+project.db
+data_backup
+
+# Scripts (not needed in production)
+check_*.py
+demo_*.py
+demonstrate_*.py
+diagnose_*.py
+export_*.py
+find_*.py
+fix_*.py
+improve_*.py
+populate_*.py
+quick_*.py
+retrain_*.py
+run_*.py
+setup_*.py
+simple_*.py
+swap_*.py
+switch_*.py
+train_*.py
+update_*.py
+verify_*.py
+view_*.py
+balance_*.py
+clean_*.py
+create_*.py
+download_*.py
+dump_*.py
+encrypt_*.py
+restart_*.py
+auto_restart.py
+
+# Reports/Results
+health_report_*.json
+test_results*.json
+test_results*.txt
+*_output.txt
+*_results.txt
+
+# Images/Plots
+*.png
+*.jpg
+*.jpeg
+feature_importance.png
+roc_curve.png
+mdfdp-screenshot.png
+
+# Notebooks
+*.ipynb
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Orchids
+.orchids/
+
+# Render (not needed for Railway)
+render.yaml
