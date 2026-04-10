@@ -130,10 +130,10 @@ colorama==0.4.6
 # mypy==1.7.1
 
 # ------------------------------------------------------------------------------
-# Production Server (Optional - Uncomment for deployment)
+# Production Server (Required for deployment)
 # ------------------------------------------------------------------------------
-# gunicorn==21.2.0
-# eventlet==0.33.3
+gunicorn==21.2.0
+eventlet==0.33.3
 
 # ------------------------------------------------------------------------------
 # Database (Optional - Uncomment if using SQL database)
