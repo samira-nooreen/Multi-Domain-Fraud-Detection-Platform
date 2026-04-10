@@ -1,12 +1,15 @@
-# Multi-Domain Fraud Detection Platform - Updated Requirements
-# Compatible with Python 3.11+ (including Python 3.14)
+# Multi-Domain Fraud Detection Platform - Production Requirements
+# Optimized for deployment (Python 3.11+)
 
 # Core Web Framework
 Flask>=3.1.0
+Flask-CORS>=5.0.0
 Werkzeug>=3.1.0
 Jinja2>=3.1.4
 itsdangerous>=2.2.0
 click>=8.1.7
+flask-socketio>=5.4.0
+eventlet>=0.36.0
 
 # Data Science & Machine Learning Core
 pandas>=2.2.0

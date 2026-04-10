@@ -3,6 +3,7 @@ Multi-Domain Fraud Detection Platform (MDFDP)
 Flask Application with 10 ML-based Fraud Detection Modules
 """
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, flash
+from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import threading
 import time
@@ -68,6 +69,9 @@ def login_required(f):
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'
+
+# Enable CORS for all routes (allows frontend from any domain)
+CORS(app)
 
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
