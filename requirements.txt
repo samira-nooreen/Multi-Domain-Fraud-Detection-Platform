@@ -9,7 +9,6 @@ Jinja2>=3.1.4
 itsdangerous>=2.2.0
 click>=8.1.7
 flask-socketio>=5.4.0
-eventlet>=0.36.0
 
 # Data Science & Machine Learning Core
 pandas>=2.2.0
@@ -83,4 +82,3 @@ python-dotenv>=1.0.0
 
 # Production Server
 gunicorn>=23.0.0
-eventlet>=0.36.0
