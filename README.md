@@ -1,44 +1,48 @@
-# Multi-Domain Fraud Detection Platform (MDFDP)
+# 🛡️ Multi-Domain Fraud Detection Platform (MDFDP)
 
 MDFDP is a Flask-based web platform that brings multiple fraud and risk detection modules into one unified system. It combines machine learning models, rule-based logic, and a web dashboard to help analyze suspicious activity across financial transactions, social profiles, content, and more.
 
-## Live Website
+## 🌐 Live Website
+[https://multi-domain-fraud-detection-platform-e2f0e9g2hha4axcm.southeastasia-01.azurewebsites.net/](https://multi-domain-fraud-detection-platform-e2f0e9g2hha4axcm.southeastasia-01.azurewebsites.net/)
 
-https://multi-domain-fraud-detection-platform-e2f0e9g2hha4axcm.southeastasia-01.azurewebsites.net/
+## 🔍 Core Modules
 
-## Core Modules
+The platform includes **11 major analysis modules**:
 
-The platform includes 11 major analysis modules:
+1. 💸 UPI Fraud Detection
+2. 💳 Credit Card Fraud Detection
+3. 🏦 Loan Default Risk Prediction
+4. 🏥 Insurance Fraud Detection
+5. 🖱️ Click Fraud Detection
+6. 📰 Fake News Detection
+7. 📧 Spam Email Detection
+8. 🔗 Phishing URL Detection
+9. 🤖 Fake Profile / Bot Detection
+10. 📄 Document Forgery Detection
+11. ™️ Brand Abuse Detection
 
-1. UPI Fraud Detection
-2. Credit Card Fraud Detection
-3. Loan Default Risk Prediction
-4. Insurance Fraud Detection
-5. Click Fraud Detection
-6. Fake News Detection
-7. Spam Email Detection
-8. Phishing URL Detection
-9. Fake Profile / Bot Detection
-10. Document Forgery Detection
-11. Brand Abuse Detection
+## 🧰 Tech Stack
 
-## Tech Stack
+| Layer | Tools |
+|-------|-------|
+| 🔙 Backend | Flask, Flask-SocketIO, Flask-CORS |
+| 🤖 ML/Data | scikit-learn, XGBoost, NumPy, pandas |
+| 📦 Model Serving | Pickle/joblib-based model loading with module-level predictors |
+| 🗄️ Database | SQLite |
+| 🎨 Frontend | Jinja templates, HTML/CSS/JS |
+| ☁️ Deployment | Azure App Service + GitHub Actions |
 
-- Backend: Flask, Flask-SocketIO, Flask-CORS
-- ML/Data: scikit-learn, XGBoost, NumPy, pandas
-- Model serving: Pickle/joblib-based model loading with module-level predictors
-- Database: SQLite
-- Frontend: Jinja templates, HTML/CSS/JS
-- Deployment: Azure App Service + GitHub Actions
+## 📁 Project Structure
 
-## Project Structure
-
-- `app.py`: Main Flask application and routes
-- `database.py`: SQLite setup and data-access helpers
-- `ml_modules/`: Detection modules and model logic
-- `templates/`: Frontend pages
-- `static/`: CSS/JS/assets
-- `.github/workflows/azure-webapp.yml`: Azure deployment workflow
+```
+├── app.py                          # 🚀 Main Flask application and routes
+├── database.py                     # 🗃️ SQLite setup and data-access helpers
+├── ml_modules/                     # 🧠 Detection modules and model logic
+├── templates/                      # 🖼️ Frontend pages
+├── static/                         # 🎨 CSS/JS/assets
+└── .github/workflows/
+    └── azure-webapp.yml            # ⚙️ Azure deployment workflow
+```
 
 ## Local Setup
 
