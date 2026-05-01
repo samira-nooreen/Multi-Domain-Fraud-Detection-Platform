@@ -75,6 +75,9 @@ class InsuranceFraudDetector:
         # Average claim amounts by type (industry benchmarks in INR)
         claim_type_averages = {
             'accident': 100000,  # ₹1 Lakh average for accident
+            'vehicle': 100000,   # Vehicle claims are typically similar to accident claims
+            'auto': 100000,
+            'motor': 100000,
             'theft': 150000,     # ₹1.5 Lakhs for theft
             'health': 75000,     # ₹75K for health
             'medical': 75000,    # Alias for health
@@ -82,7 +85,19 @@ class InsuranceFraudDetector:
             'other': 100000      # ₹1 Lakh default
         }
         
-        claim_type = data.get('claim_type', 'other').lower()
+        raw_claim_type = str(data.get('claim_type', 'other')).lower().strip()
+        claim_type_aliases = {
+            'vehicle insurance': 'vehicle',
+            'vehicle claim': 'vehicle',
+            'motor claim': 'motor',
+            'auto claim': 'auto',
+            'car': 'vehicle',
+            'car accident': 'accident',
+            'vehicle': 'vehicle',
+            'motor': 'motor',
+            'auto': 'auto'
+        }
+        claim_type = claim_type_aliases.get(raw_claim_type, raw_claim_type)
         avg_claim_for_type = claim_type_averages.get(claim_type, 5000)
         normalized_claim_ratio = claim_amount / avg_claim_for_type if avg_claim_for_type > 0 else 1.0
         
@@ -92,6 +107,11 @@ class InsuranceFraudDetector:
         
         # 3. INCIDENT SEVERITY SCORE
         incident_severity_map = {
+            'minor accident': 1,
+            'high repair cost': 2,
+            'unusually high billing': 2,
+            'simple procedure': 2,
+            'overbilling': 3,
             'truck hit': 2,
             'car accident': 2,
             'fire': 3,
@@ -143,7 +163,7 @@ class InsuranceFraudDetector:
             prob += 0.50  # 10% -> 60%
             reasons.append(f"Multiple previous claims ({int(past_claims)}) - elevated risk")
         elif past_claims >= 2:
-            prob += 0.30  # 10% -> 40%
+            prob += 0.20  # 10% -> 30%
             reasons.append(f"Several previous claims ({int(past_claims)}) - moderate risk")
         elif past_claims >= 1:
             prob += 0.15  # 10% -> 25%
@@ -173,6 +193,8 @@ class InsuranceFraudDetector:
         elif normalized_claim_ratio > 1.5:
             prob += 0.10
             reasons.append("Claim amount slightly above average")
+        elif normalized_claim_ratio < 1.0 and claim_type in ('vehicle', 'motor', 'auto', 'accident'):
+            reasons.append("Claim amount within expected range for vehicle/accident claim")
         elif normalized_claim_ratio < 0.5:
             prob -= 0.05  # Small claims barely reduce risk
             reasons.append("Claim amount below average - lower risk")
@@ -209,6 +231,17 @@ class InsuranceFraudDetector:
         if 'vague' in incident_desc_lower or 'inconsistent' in incident_desc_lower or 'unclear' in incident_desc_lower:
             prob += 0.20
             reasons.append("Vague/inconsistent description detected")
+
+        if claim_type in ('health', 'medical'):
+            if 'unusually high billing' in incident_desc_lower or 'high billing' in incident_desc_lower:
+                prob += 0.08
+                reasons.append("Medical claim with unusually high billing")
+            if 'simple procedure' in incident_desc_lower or 'minor procedure' in incident_desc_lower:
+                prob += 0.05
+                reasons.append("Simple procedure with elevated billing")
+            if normalized_claim_ratio >= 1.1 and past_claims >= 2:
+                prob += 0.03
+                reasons.append("Repeated medical claim history with above-average billing")
         
         if 'total loss' in incident_desc_lower or 'full damage' in incident_desc_lower:
             if normalized_claim_ratio > 2:

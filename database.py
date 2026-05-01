@@ -9,11 +9,21 @@ import json
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Database file path
-DB_PATH = 'project.db'
+_DEFAULT_DB_DIR = os.path.join(os.path.expanduser('~'), '.mdfdp')
+
+# Database file path. Azure/App Service deployments can override this with
+# DATABASE_PATH, but the default points to a writable home-directory location.
+DB_PATH = os.getenv('DATABASE_PATH', os.path.join(_DEFAULT_DB_DIR, 'project.db'))
+
+
+def _ensure_db_directory():
+    """Create the database directory before opening the SQLite file."""
+    db_dir = os.path.dirname(os.path.abspath(DB_PATH))
+    os.makedirs(db_dir, exist_ok=True)
 
 def init_db():
     """Initialize the SQLite database with required tables"""
+    _ensure_db_directory()
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
@@ -72,6 +82,7 @@ def init_db():
 
 def get_db_connection():
     """Get a database connection"""
+    _ensure_db_directory()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # Enable column access by name
     return conn

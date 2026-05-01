@@ -14,6 +14,19 @@ class UPIFraudDetector:
         if isinstance(value, str):
             return 1 if value.lower() in ['yes', 'y', 'true', '1'] else 0
         return int(value)
+
+    def _extract_hour(self, time_value):
+        """Extract hour from HH:MM (24h) or HH:MM AM/PM formats."""
+        if not time_value:
+            return None
+        try:
+            raw = str(time_value).strip()
+            if 'am' in raw.lower() or 'pm' in raw.lower():
+                dt = datetime.strptime(raw.upper(), '%I:%M %p')
+                return dt.hour
+            return int(raw.split(':')[0])
+        except Exception:
+            return None
     
     def __init__(self, model_path='upi_fraud_model.pkl', scaler_path='upi_fraud_scaler.pkl'):
         """Initialize the fraud detector"""
@@ -107,15 +120,14 @@ class UPIFraudDetector:
         # Time-based risk boosting
         time_str = data.get('time_of_transaction', '')
         night_time_boost = 0.0
-        if time_str:
-            try:
-                hour = int(time_str.split(':')[0])
-                if hour >= 23 or hour <= 5:
-                    night_time_boost = 0.35  # Significant boost for night transactions
-                elif hour >= 6 and hour <= 8:
-                    night_time_boost = 0.15
-            except:
-                pass
+        hour = self._extract_hour(time_str)
+        if hour is not None:
+            if hour >= 23 or hour <= 5:
+                night_time_boost = 0.35  # Significant boost for night transactions
+            elif hour >= 6 and hour <= 8:
+                night_time_boost = 0.15
+            elif hour >= 20 and hour <= 22:
+                night_time_boost = 0.08  # Mild boost for late-evening transactions
         
         # Device change boosting
         if self._parse_device_changed(data.get('device_changed', 0)) == 1:
@@ -132,9 +144,14 @@ class UPIFraudDetector:
         
         # High-risk combinations (POST-PROCESSING)
         final_prob = base_prob + risk_boost + night_time_boost
+
+        # Medium-risk guardrail for suspicious but not extreme transactions
+        device_changed = self._parse_device_changed(data.get('device_changed', 0))
+        if device_changed == 1 and amount >= 15000 and hour is not None and hour >= 20:
+            final_prob = max(final_prob, 0.32)
         
         # Ensure minimum risk for critical scenarios
-        if amount > 500000 and (night_time_boost > 0.2 or self._parse_device_changed(data.get('device_changed', 0)) == 1):
+        if amount > 500000 and (night_time_boost > 0.2 or device_changed == 1):
             final_prob = max(final_prob, 0.25)
         
         if amount > 1000000 and night_time_boost > 0.2:
@@ -168,13 +185,8 @@ class UPIFraudDetector:
             return min(int(lam * 2.5), max_val)
 
         # Parse time
-        if time_str:
-            try:
-                hour = int(time_str.split(':')[0])
-            except:
-                hour = datetime.now().hour
-        else:
-            hour = datetime.now().hour
+        parsed_hour = self._extract_hour(time_str)
+        hour = parsed_hour if parsed_hour is not None else datetime.now().hour
             
         day_of_week = datetime.now().weekday()
         
@@ -231,17 +243,17 @@ class UPIFraudDetector:
         # Time-based risk (CRITICAL for unusual hours)
         time_str = data.get('time_of_transaction', '')
         night_time_risk = 0.0
-        if time_str:
-            try:
-                hour = int(time_str.split(':')[0])
-                if hour >= 23 or hour <= 5:
-                    night_time_risk = 0.35
-                    reasons.append(f"Transaction during unusual hours ({hour:02d}:00)")
-                elif hour >= 6 and hour <= 8:
-                    night_time_risk = 0.15
-                    reasons.append(f"Early morning transaction ({hour:02d}:00)")
-            except:
-                pass
+        hour = self._extract_hour(time_str)
+        if hour is not None:
+            if hour >= 23 or hour <= 5:
+                night_time_risk = 0.35
+                reasons.append(f"Transaction during unusual hours ({hour:02d}:00)")
+            elif hour >= 6 and hour <= 8:
+                night_time_risk = 0.15
+                reasons.append(f"Early morning transaction ({hour:02d}:00)")
+            elif hour >= 20 and hour <= 22:
+                night_time_risk = 0.08
+                reasons.append(f"Late evening transaction ({hour:02d}:00)")
         
         # Device change risk
         device_change = self._parse_device_changed(data.get('device_changed', 0))
@@ -266,6 +278,11 @@ class UPIFraudDetector:
         
         final_score = base_score + risk_boost + night_time_risk
         fraud_prob = min(0.95, final_score)
+
+        if device_change == 1 and amount >= 15000 and hour is not None and hour >= 20:
+            fraud_prob = max(fraud_prob, 0.32)
+            if "Suspicious combination: device change + evening high-value transfer" not in reasons:
+                reasons.append("Suspicious combination: device change + evening high-value transfer")
         
         if amount > 500000 and (night_time_risk > 0.2 or device_change == 1):
             fraud_prob = max(fraud_prob, 0.25)
@@ -314,12 +331,9 @@ class UPIFraudDetector:
         is_very_high_value = amount > 1000000
         
         is_unusual_time = False
-        if time_str:
-            try:
-                hour = int(time_str.split(':')[0])
-                is_unusual_time = (hour >= 23 or hour <= 5)
-            except:
-                pass
+        hour = self._extract_hour(time_str)
+        if hour is not None:
+            is_unusual_time = (hour >= 23 or hour <= 5)
         
         if fraud_prob > 0.7:
             if is_very_high_value and is_unusual_time:

@@ -6,6 +6,7 @@ import math
 from collections import Counter
 import os
 import re
+from urllib.parse import urlparse
 
 
 class PhishingDetector:
@@ -54,6 +55,17 @@ class PhishingDetector:
             '.de', '.fr', '.jp', '.au', '.io'
         }
 
+    def _normalize_domain(self, domain):
+        """Normalize domain for consistent safe/official checks."""
+        domain = (domain or '').lower().strip()
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        return domain
+
+    def _domain_matches(self, domain, official_domain):
+        """Return True if domain equals official domain or is its subdomain."""
+        return domain == official_domain or domain.endswith('.' + official_domain)
+
     def _get_entropy(self, text):
         if not text:
             return 0
@@ -68,10 +80,15 @@ class PhishingDetector:
     def _extract_domain(self, url):
         """Extract the main domain from a URL."""
         try:
-            # Remove protocol
-            domain = url.lower().split('//')[-1].split('/')[0].split('?')[0]
+            parsed = urlparse(url if '://' in url else ('https://' + url))
+            domain = (parsed.netloc or parsed.path).lower()
+            # Remove credentials if present
+            if '@' in domain:
+                domain = domain.split('@')[-1]
             # Remove port
             domain = domain.split(':')[0]
+            # Remove trailing dot
+            domain = domain.rstrip('.')
             return domain
         except:
             return url.lower()
@@ -92,10 +109,11 @@ class PhishingDetector:
             return self._format_result(0.1)
 
         domain = self._extract_domain(url)
+        normalized_domain = self._normalize_domain(domain)
         url_lower = url.lower()
 
         # --- WHITELIST CHECK ---
-        if domain in self.safe_domains:
+        if domain in self.safe_domains or normalized_domain in self.safe_domains:
             return self._format_result(0.05)
 
         score = 0.0
@@ -107,6 +125,18 @@ class PhishingDetector:
             indicators.append("Very long URL")
         elif len(url) > 75:
             score += 0.08
+
+        # --- URL SHORTENER / OBFUSCATION ---
+        shortener_domains = {
+            'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd',
+            'buff.ly', 'rb.gy', 'shorturl.at', 'cutt.ly', 'rebrand.ly'
+        }
+        if normalized_domain in shortener_domains:
+            score += 0.30
+            indicators.append(f"Shortened URL domain used: {normalized_domain}")
+            if any(k in url_lower for k in ['login', 'verify', 'secure', 'update', 'account', 'prize', 'winner']):
+                score += 0.20
+                indicators.append("Shortened URL contains credential/scam bait keywords")
 
         # --- IP ADDRESS IN URL ---
         if re.search(r'(\d{1,3}\.){3}\d{1,3}', domain):
@@ -124,8 +154,13 @@ class PhishingDetector:
             score += 0.30  # Additional penalty for .ru
             indicators.append("Russian domain (.ru) - commonly used for scams")
 
+        # --- PUNYCODE / HOMOGRAPH ATTEMPT ---
+        if 'xn--' in normalized_domain:
+            score += 0.40
+            indicators.append("Punycode domain detected (possible homograph spoofing)")
+
         # --- EXCESSIVE SUBDOMAINS ---
-        subdomain_count = domain.count('.') - 1
+        subdomain_count = normalized_domain.count('.') - 1
         if subdomain_count > 3:
             score += 0.25
             indicators.append(f"Excessive subdomains ({subdomain_count})")
@@ -137,16 +172,22 @@ class PhishingDetector:
                           'facebook', 'netflix', 'ebay', 'wellsfargo', 'chase',
                           'sbi', 'hdfc', 'icici', 'paytm', 'upi', 'aadhaar']
         brand_domain_map = {
-            'paypal': 'paypal.com', 'google': 'google.com',
-            'microsoft': 'microsoft.com', 'apple': 'apple.com',
-            'amazon': 'amazon.com', 'facebook': 'facebook.com',
-            'sbi': 'sbi.co.in', 'hdfc': 'hdfcbank.com',
-            'icici': 'icicibank.com', 'paytm': 'paytm.com'
+            'paypal': ['paypal.com'],
+            'google': ['google.com', 'google.co.in'],
+            'microsoft': ['microsoft.com'],
+            'apple': ['apple.com'],
+            'amazon': ['amazon.com', 'amazon.in'],
+            'facebook': ['facebook.com'],
+            'sbi': ['sbi.co.in'],
+            'hdfc': ['hdfcbank.com'],
+            'icici': ['icicibank.com'],
+            'paytm': ['paytm.com']
         }
         for brand in trusted_brands:
-            if brand in domain:
-                official = brand_domain_map.get(brand, brand + '.com')
-                if domain != official and not domain.endswith('.' + official):
+            if brand in normalized_domain:
+                official_domains = brand_domain_map.get(brand, [brand + '.com'])
+                is_official = any(self._domain_matches(normalized_domain, off) for off in official_domains)
+                if not is_official:
                     score += 0.45
                     indicators.append(f"Brand impersonation: '{brand}' in non-official domain")
                     break
@@ -215,6 +256,11 @@ class PhishingDetector:
             score += 0.15
             indicators.append("Excessive special characters")
 
+        # --- @ USERINFO TRICK ---
+        if '@' in url_lower:
+            score += 0.30
+            indicators.append("'@' symbol used in URL (possible redirect deception)")
+
         # --- HTTP (no HTTPS) ---
         if url_lower.startswith('http://') and not url_lower.startswith('https://'):
             score += 0.08
@@ -226,13 +272,22 @@ class PhishingDetector:
             score += 0.15
         
         # --- MULTIPLE HYPHENS (common in phishing) ---
-        hyphen_count = domain.count('-')
+        hyphen_count = normalized_domain.count('-')
         if hyphen_count >= 3:
             score += 0.20
             indicators.append(f"Multiple hyphens in domain ({hyphen_count}) - suspicious pattern")
         elif hyphen_count >= 2:
             score += 0.12
             indicators.append(f"Multiple hyphens in domain ({hyphen_count})")
+
+        # --- SUSPICIOUS QUERY/PATH TOKENS ---
+        if any(token in url_lower for token in ['redirect=', 'return=', 'next=', 'continue=', 'session=', 'token=']):
+            score += 0.15
+            indicators.append("Suspicious redirect/session parameters detected")
+
+        if any(token in url_lower for token in ['password', 'credential', 'verify-account', 'security-check', 'confirm-identity']):
+            score += 0.18
+            indicators.append("Credential/verification bait terms detected in URL")
 
         prob = min(0.95, score)
         result = self._format_result(prob, indicators)
@@ -252,7 +307,8 @@ class PhishingDetector:
         confidence_percent = min(100, max(0, abs(prob - 0.5) * 2 * 100))
 
         return {
-            'is_phishing': bool(prob > 0.5),
+            # Keep status aligned with displayed risk bands.
+            'is_phishing': bool(prob > 0.40),
             'phishing_probability': round(float(prob), 4),
             'risk_level': risk_level,
             'confidence': round(float(abs(prob - 0.5) * 2), 4),

@@ -1721,3 +1721,10 @@ body {
     max-height: 300px;
   }
 }
+
+/* ========== MODULE RESULT CLEANUP ========== */
+/* Hide analysis/recommendation blocks across all module result cards. */
+.result-card .analysis-section,
+.result-card .recommendation {
+  display: none !important;
+}

@@ -1,8 +1,107 @@
 # 🛡️ Multi-Domain Fraud Detection Platform (MDFDP)
 
+## Deployment Diagram
+
+```mermaid
+flowchart LR
+  Dev[Developer]
+  GH[GitHub Repo]
+  CI[CI/CD (GitHub Actions)]
+  Reg[Container Registry\n(ACR / Docker Hub)]
+  Deploy[Deployment Trigger]
+  LB[Load Balancer]
+  Cluster[Hosting (Azure App Service / AKS)]
+  Container[Docker Container\n(App + Gunicorn/Uvicorn)]
+  App[Application API]
+  Model[Model & Artifacts\n(Azure Blob Storage)]
+  DB[Database\n(Azure SQL / PostgreSQL)]
+  Cache[Redis Cache]
+  KV[Azure Key Vault]
+  Users[Users / Clients]
+  Monitor[Monitoring / Logging\n(Azure Monitor / Log Analytics / Prometheus)]
+
+  Dev --> |push| GH
+  GH --> |CI pipeline: build/test| CI
+  CI --> |build image| Reg
+  CI --> |deploy| Deploy
+  Deploy --> Reg
+  Reg --> |pull image| Cluster
+  LB --> Cluster
+  Users --> |HTTPS| LB
+  Cluster --> Container
+  Container --> App
+  App --> Model
+  App --> DB
+  App --> Cache
+  App --> KV
+  Cluster --> Monitor
+  Cluster --> Monitor -->|alerts/logs| Dev
+
+  subgraph Optional Components
+    CDN[CDN / Static Assets]
+    EmailSrv[External Email / 3rd-party APIs]
+    FeatureFlags[Feature Flag Service]
+  end
+
+  App --> CDN
+  App --> EmailSrv
+  App --> FeatureFlags
+
+  classDef cloud fill:#f3f7ff,stroke:#0366d6;
+  class Cluster,Reg,Model,DB,KV cloud;
+```
+
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+  Users[Users / Clients]
+  Browser[Web Client (Browser)]
+  Mobile[Mobile Clients]
+  CDN[CDN / Static Assets]
+  LB[Load Balancer / API Gateway]
+  API[Flask API (Gunicorn / Uvicorn)]
+  Auth[Auth & Sessions]
+  ML[ML Modules]
+  ModelStore[Model Artifacts\n(Azure Blob Storage)]
+  DB[Database\n(SQLite / Azure SQL)]
+  Cache[Redis Cache]
+  Queue[Message Queue\n(RabbitMQ / Redis)]
+  Workers[Background Workers\n(Celery / RQ)]
+  Admin[Admin Dashboard]
+  External[External Services\n(Email, 3rd-party APIs)]
+  Monitoring[Monitoring / Logging\n(Azure Monitor / Prometheus / ELK)]
+  DevOps[DevOps / Alerts]
+
+  Users --> Browser
+  Users --> Mobile
+  Browser --> CDN
+  Browser --> LB
+  Mobile --> LB
+  LB --> API
+  API --> Auth
+  API --> ML
+  ML --> ModelStore
+  API --> DB
+  API --> Cache
+  API --> Queue
+  Queue --> Workers
+  Workers --> ML
+  API --> Admin
+  API --> External
+  API --> Monitoring
+  Monitoring --> DevOps
+
+  classDef infra fill:#f7fff4,stroke:#0b6623;
+  class CDN,LB,ModelStore,DB,Cache,Queue,Monitoring infra;
+```
+
+Export tip: Open `README.md` in VS Code and use Mermaid preview, or paste blocks into https://mermaid.live to export PNG/SVG.
+
 MDFDP is a Flask-based web platform that brings multiple fraud and risk detection modules into one unified system. It combines machine learning models, rule-based logic, and a web dashboard to help analyze suspicious activity across financial transactions, social profiles, content, and more.
 
 ## 🌐 Live Website
+
 [https://multi-domain-fraud-detection-platform-e2f0e9g2hha4axcm.southeastasia-01.azurewebsites.net/](https://multi-domain-fraud-detection-platform-e2f0e9g2hha4axcm.southeastasia-01.azurewebsites.net/)
 
 ## 🔍 Core Modules
@@ -23,14 +122,14 @@ The platform includes **11 major analysis modules**:
 
 ## 🧰 Tech Stack
 
-| Layer | Tools |
-|-------|-------|
-| 🔙 Backend | Flask, Flask-SocketIO, Flask-CORS |
-| 🤖 ML/Data | scikit-learn, XGBoost, NumPy, pandas |
+| Layer            | Tools                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| 🔙 Backend       | Flask, Flask-SocketIO, Flask-CORS                              |
+| 🤖 ML/Data       | scikit-learn, XGBoost, NumPy, pandas                           |
 | 📦 Model Serving | Pickle/joblib-based model loading with module-level predictors |
-| 🗄️ Database | SQLite |
-| 🎨 Frontend | Jinja templates, HTML/CSS/JS |
-| ☁️ Deployment | Azure App Service + GitHub Actions |
+| 🗄️ Database      | SQLite                                                         |
+| 🎨 Frontend      | Jinja templates, HTML/CSS/JS                                   |
+| ☁️ Deployment    | Azure App Service + GitHub Actions                             |
 
 ## 📁 Project Structure
 

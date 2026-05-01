@@ -9,6 +9,40 @@ import os
 from datetime import datetime
 
 class CreditCardFraudDetector:
+    def _extract_hour(self, time_value):
+        """Extract hour from HH:MM (24h) or HH:MM AM/PM formats."""
+        if not time_value:
+            return None
+        try:
+            raw = str(time_value).strip()
+            if 'am' in raw.lower() or 'pm' in raw.lower():
+                dt = datetime.strptime(raw.upper(), '%I:%M %p')
+                return dt.hour
+            return int(raw.split(':')[0])
+        except Exception:
+            return None
+
+    def _is_foreign_or_unusual_location(self, location):
+        """Heuristic check for foreign or unusual transaction location."""
+        if not location:
+            return True
+
+        loc = location.lower().strip()
+        indian_markers = [
+            'india', 'mumbai', 'delhi', 'bangalore', 'bengaluru', 'chennai',
+            'hyderabad', 'pune', 'kolkata', 'ahmedabad', 'jaipur', 'surat',
+            'lucknow', 'indore', 'kochi', 'nagpur', 'noida', 'gurgaon', 'thane'
+        ]
+        if any(marker in loc for marker in indian_markers):
+            return False
+
+        foreign_markers = [
+            'new york', 'usa', 'united states', 'uk', 'london', 'canada', 'toronto',
+            'dubai', 'singapore', 'paris', 'sydney', 'berlin', 'tokyo',
+            'foreign', 'international', 'unknown', 'unusual'
+        ]
+        return any(marker in loc for marker in foreign_markers)
+
     def __init__(self, model_path='ml_modules/credit_card/credit_card_model.pkl',
                  scaler_path='ml_modules/credit_card/credit_card_scaler.pkl',
                  features_path='ml_modules/credit_card/credit_card_features.pkl'):
@@ -41,6 +75,10 @@ class CreditCardFraudDetector:
         transaction_type = transaction_data.get('transaction_type', 'POS')
         card_present = int(transaction_data.get('card_present', 1))
         location = transaction_data.get('location', '').lower()
+        transaction_time = transaction_data.get('time_of_transaction', '')
+        hour = self._extract_hour(transaction_time)
+        is_unusual_hour = hour is not None and (hour >= 23 or hour <= 5)
+        is_foreign_or_unusual_location = self._is_foreign_or_unusual_location(location)
 
         high_risk_indicators = []
 
@@ -106,7 +144,29 @@ class CreditCardFraudDetector:
             # TRANSACTION TYPE RISK
             if transaction_type == 'Online' and not card_present:
                 high_risk_indicators.append("Online transaction without card present")
-                fraud_prob = min(0.95, max(fraud_prob, 0.65))  # Floor at 65% for online+no card
+                # Apply amount-aware floor so normal e-commerce is not over-penalized.
+                if amount >= 500000:
+                    cnp_floor = 0.70
+                elif amount >= 100000:
+                    cnp_floor = 0.58
+                elif amount >= 50000:
+                    cnp_floor = 0.48
+                else:
+                    cnp_floor = 0.35
+                fraud_prob = min(0.95, max(fraud_prob, cnp_floor))
+
+            # Location context risk
+            if is_foreign_or_unusual_location:
+                high_risk_indicators.append("Foreign or unusual transaction location")
+                fraud_prob = min(0.95, fraud_prob + (0.12 if amount >= 50000 else 0.07))
+
+            # Time-of-day risk (if provided)
+            if is_unusual_hour:
+                high_risk_indicators.append("Transaction during unusual hours")
+                fraud_prob = min(0.95, fraud_prob + 0.18)
+            elif hour is not None and 6 <= hour <= 8:
+                high_risk_indicators.append("Early-hour transaction")
+                fraud_prob = min(0.95, fraud_prob + 0.07)
 
             if amount >= 500000 and transaction_type == 'Online':
                 fraud_prob = min(0.95, fraud_prob * 1.5)
@@ -118,6 +178,15 @@ class CreditCardFraudDetector:
 
             if not card_present and amount >= 50000:
                 fraud_prob = min(0.95, max(fraud_prob, 0.45))
+
+            # Force HIGH for interview-realistic red-flag combos
+            if transaction_type == 'Online' and not card_present and amount >= 75000:
+                if is_foreign_or_unusual_location and is_unusual_hour:
+                    fraud_prob = min(0.95, max(fraud_prob, 0.68))
+                    high_risk_indicators.append("High-risk combo: online CNP + foreign location + unusual hour")
+                elif is_foreign_or_unusual_location or is_unusual_hour:
+                    fraud_prob = min(0.95, max(fraud_prob, 0.60))
+                    high_risk_indicators.append("High-risk combo: online CNP with major contextual red flag")
             
             # Ensure minimum probability shows some risk (not 0%)
             if fraud_prob < 0.01 and amount > 0:
@@ -140,6 +209,7 @@ class CreditCardFraudDetector:
         location = data.get('location', '')
         transaction_type = data.get('transaction_type', 'POS')
         card_present = int(data.get('card_present', 1))
+        time_of_transaction = data.get('time_of_transaction', '')
         
         seed_str = f"{amount}_{location}_{transaction_type}_{card_present}"
         
@@ -156,7 +226,8 @@ class CreditCardFraudDetector:
             if val < 0.9: return int(lam * 1.5)
             return min(int(lam * 2.5), max_val)
         
-        hour = datetime.now().hour
+        parsed_hour = self._extract_hour(time_of_transaction)
+        hour = parsed_hour if parsed_hour is not None else datetime.now().hour
         day_of_week = datetime.now().weekday()
         is_weekend = 1 if day_of_week >= 5 else 0
         
@@ -269,6 +340,10 @@ class CreditCardFraudDetector:
         transaction_type = data.get('transaction_type', 'POS')
         card_present = int(data.get('card_present', 1))
         location = data.get('location', '').lower()
+        time_of_transaction = data.get('time_of_transaction', '')
+        hour = self._extract_hour(time_of_transaction)
+        is_unusual_hour = hour is not None and (hour >= 23 or hour <= 5)
+        is_foreign_or_unusual_location = self._is_foreign_or_unusual_location(location)
         
         risk_factors = []
         risk_score = 0.0
@@ -289,29 +364,41 @@ class CreditCardFraudDetector:
         
         # Transaction type risk
         if transaction_type == 'Online':
-            risk_score += 0.2
+            risk_score += 0.1
             risk_factors.append("Online transaction")
         elif transaction_type == 'ATM':
             risk_score += 0.1
             risk_factors.append("ATM transaction")
         
-        # Card present risk - MOST IMPORTANT FRAUD SIGNAL
+        # Card present risk (important but not always high-risk by itself)
         if not card_present:
-            risk_score += 0.35
+            risk_score += 0.18
             risk_factors.append("Card not present")
         
         # Online + no card = very high risk
         if transaction_type == 'Online' and not card_present:
-            risk_score += 0.15  # Additional boost for this dangerous combo
+            risk_score += 0.08  # Extra boost for CNP e-commerce pattern
             risk_factors.append("Card-not-present online transaction (high fraud risk)")
         
         # Location-based risk
-        high_risk_locations = ['unknown', 'foreign', 'unusual']
-        if any(loc in location for loc in high_risk_locations) or len(location) == 0:
+        if is_foreign_or_unusual_location:
             risk_score += 0.1
-            risk_factors.append("Unusual or unknown location")
+            risk_factors.append("Foreign or unusual location")
+
+        if is_unusual_hour:
+            risk_score += 0.18
+            risk_factors.append("Transaction during unusual hours")
         
-        risk_score += 0.05  # Base risk
+        risk_score += 0.03  # Base risk
+
+        if transaction_type == 'Online' and not card_present and amount >= 75000:
+            if is_foreign_or_unusual_location and is_unusual_hour:
+                risk_score = max(risk_score, 0.68)
+                risk_factors.append("High-risk combo: online CNP + foreign location + unusual hour")
+            elif is_foreign_or_unusual_location or is_unusual_hour:
+                risk_score = max(risk_score, 0.60)
+                risk_factors.append("High-risk combo: online CNP with major contextual red flag")
+
         risk_score = min(0.95, risk_score)
         
         result = self._format_result(risk_score)

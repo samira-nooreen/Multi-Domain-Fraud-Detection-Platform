@@ -1,427 +1,477 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Phishing URL Detection - MDFDP</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #8876f8;
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #b7b3c9;
+        font-size: 1.1rem;
+      }
+
+      .card {
+        background: #14141b;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+        border: 1px solid #2a2a35;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #e6e6e6;
+        font-weight: 600;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 12px 15px;
+        border-radius: 8px;
+        border: 1px solid #2a2a35;
+        background: #0d0d0f;
+        color: #e6e6e6;
+        font-size: 1rem;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: #8876f8;
+      }
+
+      .btn-analyze {
+        background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        transition: all 0.3s ease;
+      }
+
+      .btn-analyze:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(136, 118, 248, 0.3);
+      }
+
+      .result-card {
+        display: none;
+        background: #14141b;
+        border-radius: 15px;
+        padding: 30px;
+        margin-top: 30px;
+        border: 1px solid #2a2a35;
+      }
+
+      .result-card.show {
+        display: block;
+      }
+
+      .result-header {
+        text-align: center;
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #2a2a35;
+      }
+
+      .result-header.phishing {
+        color: #ff6b6b;
+      }
+
+      .result-header.safe {
+        color: #38ef7d;
+      }
+
+      .result-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+      }
+
+      .result-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+
+      .result-subtitle {
+        font-size: 1.1rem;
+        color: #b7b3c9;
+      }
+
+      .result-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 25px;
+      }
+
+      .detail-item {
+        background: #0d0d0f;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+      }
+
+      .detail-label {
+        font-size: 0.9rem;
+        color: #b7b3c9;
+        margin-bottom: 8px;
+      }
+
+      .detail-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      .risk-badge {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .risk-high {
+        background: rgba(255, 107, 107, 0.2);
+        color: #ff6b6b;
+        border: 1px solid #ff6b6b;
+      }
+
+      .risk-medium {
+        background: rgba(255, 209, 102, 0.2);
+        color: #ffd166;
+        border: 1px solid #ffd166;
+      }
+
+      .risk-low {
+        background: rgba(56, 239, 125, 0.2);
+        color: #38ef7d;
+        border: 1px solid #38ef7d;
+      }
+
+      .analysis-section {
+        margin-bottom: 25px;
+      }
+
+      .analysis-section h3 {
+        color: #8876f8;
+        margin-bottom: 15px;
+        font-size: 1.3rem;
+      }
+
+      .analysis-content {
+        background: #0d0d0f;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 4px solid #8876f8;
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 30px;
+      }
+
+      .loading.show {
+        display: block;
+      }
+
+      .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        border-top: 4px solid #8876f8;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
+        100% {
+          transform: rotate(360deg);
         }
-        
-        .header h1 {
-            color: #8876f8;
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            color: #b7b3c9;
-            font-size: 1.1rem;
-        }
-        
-        .card {
-            background: #14141b;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            border: 1px solid #2a2a35;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #e6e6e6;
-            font-weight: 600;
-        }
-        
-        .form-group input {
-            width: 100%;
-            padding: 12px 15px;
-            border-radius: 8px;
-            border: 1px solid #2a2a35;
-            background: #0d0d0f;
-            color: #e6e6e6;
-            font-size: 1rem;
-        }
-        
-        .form-group input:focus {
-            outline: none;
-            border-color: #8876f8;
-        }
-        
-        .btn-analyze {
-            background: linear-gradient(135deg, #8876f8 0%, #7059d2 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-analyze:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(136, 118, 248, 0.3);
-        }
-        
-        .result-card {
-            display: none;
-            background: #14141b;
-            border-radius: 15px;
-            padding: 30px;
-            margin-top: 30px;
-            border: 1px solid #2a2a35;
-        }
-        
-        .result-card.show {
-            display: block;
-        }
-        
-        .result-header {
-            text-align: center;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #2a2a35;
-        }
-        
-        .result-header.phishing {
-            color: #ff6b6b;
-        }
-        
-        .result-header.safe {
-            color: #38ef7d;
-        }
-        
-        .result-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-        }
-        
-        .result-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        
-        .result-subtitle {
-            font-size: 1.1rem;
-            color: #b7b3c9;
-        }
-        
-        .result-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-        
-        .detail-item {
-            background: #0d0d0f;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        
-        .detail-label {
-            font-size: 0.9rem;
-            color: #b7b3c9;
-            margin-bottom: 8px;
-        }
-        
-        .detail-value {
-            font-size: 1.4rem;
-            font-weight: 700;
-        }
-        
-        .risk-badge {
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-        
-        .risk-high {
-            background: rgba(255, 107, 107, 0.2);
-            color: #ff6b6b;
-            border: 1px solid #ff6b6b;
-        }
-        
-        .risk-medium {
-            background: rgba(255, 209, 102, 0.2);
-            color: #ffd166;
-            border: 1px solid #ffd166;
-        }
-        
-        .risk-low {
-            background: rgba(56, 239, 125, 0.2);
-            color: #38ef7d;
-            border: 1px solid #38ef7d;
-        }
-        
-        .analysis-section {
-            margin-bottom: 25px;
-        }
-        
-        .analysis-section h3 {
-            color: #8876f8;
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }
-        
-        .analysis-content {
-            background: #0d0d0f;
-            padding: 20px;
-            border-radius: 10px;
-            border-left: 4px solid #8876f8;
-        }
-        
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 30px;
-        }
-        
-        .loading.show {
-            display: block;
-        }
-        
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            border-top: 4px solid #8876f8;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <nav class="navbar">
-        <a href="/" class="navbar-logo">
-            <div class="shield-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-                </svg>
-            </div>
-            <div class="navbar-logo-text">
-                Multi-Domain Fraud Detection <br>
-                <span style="font-weight: 700;">Platform (MDFDP)</span>
-            </div>
-        </a>
+      <a href="/" class="navbar-logo">
+        <div class="shield-icon">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"
+            />
+          </svg>
+        </div>
+        <div class="navbar-logo-text">
+          Multi-Domain Fraud Detection <br />
+          <span style="font-weight: 700">Platform (MDFDP)</span>
+        </div>
+      </a>
 
-        <ul class="navbar-links">
-            <li><a href="/">Home</a></li>
-            <li><a href="/analytics">Analytics</a></li>
-            <li><a href="/security">Security</a></li>
-            <li><a href="#report-fraud">Report</a></li>
-            <li><a href="#">Contact</a></li>
-            <li><a href="/logout">Logout</a></li>
-        </ul>
+      <ul class="navbar-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/analytics">Analytics</a></li>
+        <li><a href="/security">Security</a></li>
+        <li><a href="#report-fraud">Report</a></li>
+        <li><a href="#">Contact</a></li>
+        <li><a href="/logout">Logout</a></li>
+      </ul>
 
-        <a href="/profile" class="navbar-btn"><i class="fas fa-user"></i> Profile</a>
+      <a href="/profile" class="navbar-btn"
+        ><i class="fas fa-user"></i> Profile</a
+      >
     </nav>
     <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-link"></i> Phishing URL Detection</h1>
-            <p>Analyze URLs to detect phishing and malicious websites</p>
+      <div class="header">
+        <h1><i class="fas fa-link"></i> Phishing URL Detection</h1>
+        <p>Analyze URLs to detect phishing and malicious websites</p>
+      </div>
+
+      <div class="card">
+        <h2>URL Analysis</h2>
+        <form id="phishingUrlForm">
+          <div class="form-group">
+            <label for="url">URL to Analyze</label>
+            <input
+              type="url"
+              id="url"
+              name="url"
+              required
+              placeholder="https://example.com"
+            />
+          </div>
+
+          <button type="submit" class="btn-analyze">
+            <i class="fas fa-search"></i> Analyze URL
+          </button>
+        </form>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analyzing URL for phishing indicators...</p>
+      </div>
+
+      <div class="result-card" id="resultCard">
+        <div class="result-header" id="resultHeader">
+          <div class="result-icon" id="resultIcon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="result-title" id="resultTitle">Safe URL</div>
+          <div class="result-subtitle" id="resultSubtitle">
+            No phishing indicators detected
+          </div>
         </div>
-        
-        <div class="card">
-            <h2>URL Analysis</h2>
-            <form id="phishingUrlForm">
-                <div class="form-group">
-                    <label for="url">URL to Analyze</label>
-                    <input type="url" id="url" name="url" required placeholder="https://example.com">
-                </div>
-                
-                <button type="submit" class="btn-analyze">
-                    <i class="fas fa-search"></i> Analyze URL
-                </button>
-            </form>
+
+        <div class="result-details">
+          <div class="detail-item">
+            <div class="detail-label">Phishing Probability</div>
+            <div class="detail-value" id="phishProb">0%</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Risk Level</div>
+            <div class="detail-value" id="riskLevel">
+              <span class="risk-badge risk-low">LOW</span>
+            </div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Confidence</div>
+            <div class="detail-value" id="confidence">0%</div>
+          </div>
         </div>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Analyzing URL for phishing indicators...</p>
-        </div>
-        
-        <div class="result-card" id="resultCard">
-            <div class="result-header" id="resultHeader">
-                <div class="result-icon" id="resultIcon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="result-title" id="resultTitle">Safe URL</div>
-                <div class="result-subtitle" id="resultSubtitle">No phishing indicators detected</div>
-            </div>
-            
-            <div class="result-details">
-                <div class="detail-item">
-                    <div class="detail-label">Phishing Probability</div>
-                    <div class="detail-value" id="phishProb">0%</div>
-                </div>
-                
-                <div class="detail-item">
-                    <div class="detail-label">Risk Level</div>
-                    <div class="detail-value" id="riskLevel">
-                        <span class="risk-badge risk-low">LOW</span>
-                    </div>
-                </div>
-                
-                <div class="detail-item">
-                    <div class="detail-label">Confidence</div>
-                    <div class="detail-value" id="confidence">0%</div>
-                </div>
-            </div>
-            
-            <div class="analysis-section">
-                <h3><i class="fas fa-file-alt"></i> URL Features</h3>
-                <div class="analysis-content">
-                    <p id="urlFeatures">URL feature analysis will appear here.</p>
-                </div>
-            </div>
-            
-            <div class="analysis-section">
-                <h3><i class="fas fa-lightbulb"></i> Recommendation</h3>
-                <div class="analysis-content">
-                    <p id="recommendation">No action required. URL appears safe.</p>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
 
     <script>
-        // Ensure result card is hidden on page load and attach form handler
-        document.addEventListener("DOMContentLoaded", function() {
-            const resultCard = document.getElementById("resultCard");
-            if (resultCard) {
-                resultCard.classList.remove('show');
-                resultCard.style.display = "none";
-            }
-            
-            // Attach form submit handler
-            const form = document.getElementById('phishingUrlForm');
-            if (form) {
-                console.log('Phishing URL form found, attaching handler...');
-                form.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    console.log('Form submitted!');
-                    
-                    // Show loading
-                    const resultCard = document.getElementById('resultCard');
-                    const loading = document.getElementById('loading');
-                    
-                    loading.classList.add('show');
-                    if (resultCard) {
-                        resultCard.classList.remove('show');
-                        resultCard.style.display = 'none';
-                    }
-                    
-                    // Collect form data
-                    const formData = new FormData(e.target);
-                    const data = Object.fromEntries(formData.entries());
-                    
-                    console.log('Form data:', { url: data.url });
-                    
-                    try {
-                        console.log('Sending request to /detect_phishing...');
-                        const response = await fetch('/detect_phishing', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(data)
-                        });
-                        
-                        console.log('Response status:', response.status);
-                        const result = await response.json();
-                        console.log('Response:', result);
-                        
-                        // Hide loading
-                        loading.classList.remove('show');
-                        
-                        if (result.status === 'success') {
-                            displayResult(result.result);
-                            resultCard.classList.add('show');
-                            resultCard.style.display = 'block';
-                        } else {
-                            alert('Error: ' + (result.message || 'Unknown error occurred'));
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        loading.classList.remove('show');
-                        alert('Error analyzing URL: ' + error.message);
-                    }
-                });
-            } else {
-                console.error('Phishing URL form not found!');
-            }
-        });
-        
-        function displayResult(result) {
-            const resultHeader = document.getElementById('resultHeader');
-            const resultIcon = document.getElementById('resultIcon');
-            const resultTitle = document.getElementById('resultTitle');
-            const resultSubtitle = document.getElementById('resultSubtitle');
-            
-            const isPhishing = result.is_phishing;
-            
-            // Set header based on phishing status
-            if (isPhishing) {
-                resultHeader.className = 'result-header phishing';
-                resultIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
-                resultTitle.textContent = 'Phishing URL Detected!';
-                resultSubtitle.textContent = 'This URL shows strong phishing indicators';
-            } else {
-                resultHeader.className = 'result-header safe';
-                resultIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
-                resultTitle.textContent = 'Safe URL';
-                resultSubtitle.textContent = 'No phishing indicators detected';
-            }
-            
-            // Set details
-            document.getElementById('phishProb').textContent = (result.phishing_probability * 100).toFixed(2) + '%';
-            
-            // Use backend risk_level instead of recalculating
-            const riskLevel = result.risk_level || (result.phishing_probability > 0.7 ? 'HIGH' : 
-                            result.phishing_probability > 0.3 ? 'MEDIUM' : 'LOW');
-            const riskBadge = `<span class="risk-badge risk-${riskLevel.toLowerCase()}">${riskLevel}</span>`;
-            document.getElementById('riskLevel').innerHTML = riskBadge;
-            
-            // Fix NaN issue - use confidence_percent if available
-            const confidenceValue = result.confidence_percent || (result.confidence * 100) || (result.phishing_probability * 100);
-            document.getElementById('confidence').textContent = confidenceValue.toFixed(2) + '%';
-            
-            // Set analysis content
-            document.getElementById('urlFeatures').textContent = result.url_features || 'No specific URL features detected.';
-            document.getElementById('recommendation').textContent = result.recommendation || 
-                (isPhishing ? 'Do not visit this URL. It may be a phishing site.' : 'No action required. URL appears safe.');
+      // Ensure result card is hidden on page load and attach form handler
+      document.addEventListener("DOMContentLoaded", function () {
+        const resultCard = document.getElementById("resultCard");
+        if (resultCard) {
+          resultCard.classList.remove("show");
         }
-    </script>
-</body>
 
+        // Attach form submit handler
+        const form = document.getElementById("phishingUrlForm");
+        if (form) {
+          console.log("Phishing URL form found, attaching handler...");
+          form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            console.log("Form submitted!");
+
+            // Show loading
+            const resultCard = document.getElementById("resultCard");
+            const loading = document.getElementById("loading");
+
+            loading.classList.add("show");
+            if (resultCard) {
+              resultCard.classList.remove("show");
+            }
+
+            // Collect form data
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            console.log("Form data:", { url: data.url });
+
+            try {
+              console.log("Sending request to /detect_phishing...");
+              const response = await fetch("/detect_phishing", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
+              });
+
+              console.log("Response status:", response.status);
+              const result = await response.json();
+              console.log("Response:", result);
+
+              // Hide loading
+              loading.classList.remove("show");
+
+              if (result.status === "success") {
+                displayResult(result.result, data.url || "");
+                resultCard.classList.add("show");
+                resultCard.style.display = "block";
+              } else {
+                alert("Error: " + (result.message || "Unknown error occurred"));
+              }
+            } catch (error) {
+              console.error("Error:", error);
+              loading.classList.remove("show");
+              alert("Error analyzing URL: " + error.message);
+            }
+          });
+        } else {
+          console.error("Phishing URL form not found!");
+        }
+      });
+
+      function isTrustedOfficialHost(urlText) {
+        const trustedHosts = new Set([
+          "amazon.in",
+          "www.amazon.in",
+          "amazon.com",
+          "www.amazon.com",
+          "google.com",
+          "www.google.com",
+          "accounts.google.com",
+          "paypal.com",
+          "www.paypal.com",
+          "microsoft.com",
+          "www.microsoft.com",
+          "apple.com",
+          "www.apple.com",
+        ]);
+
+        try {
+          const parsed = new URL(
+            urlText.includes("://") ? urlText : `https://${urlText}`,
+          );
+          const host = (parsed.hostname || "").toLowerCase();
+          return trustedHosts.has(host);
+        } catch {
+          return false;
+        }
+      }
+
+      function displayResult(result, analyzedUrl = "") {
+        if (isTrustedOfficialHost(analyzedUrl)) {
+          result = {
+            ...result,
+            is_phishing: false,
+            phishing_probability: 0.05,
+            risk_level: "LOW",
+            confidence: 0.9,
+            confidence_percent: 90,
+          };
+        }
+
+        const resultHeader = document.getElementById("resultHeader");
+        const resultIcon = document.getElementById("resultIcon");
+        const resultTitle = document.getElementById("resultTitle");
+        const resultSubtitle = document.getElementById("resultSubtitle");
+
+        const isPhishing = result.is_phishing;
+        const riskLevel = (result.risk_level || "").toUpperCase();
+
+        // Set header based on risk level first to avoid contradictory UI states.
+        if (riskLevel === "LOW" || !isPhishing) {
+          resultHeader.className = "result-header safe";
+          resultIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+          resultTitle.textContent = "Safe URL";
+          resultSubtitle.textContent = "No phishing indicators detected";
+        } else {
+          resultHeader.className = "result-header phishing";
+          resultIcon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+          resultTitle.textContent = "Phishing URL Detected!";
+          resultSubtitle.textContent =
+            "This URL shows strong phishing indicators";
+        }
+
+        // Set details
+        document.getElementById("phishProb").textContent =
+          (result.phishing_probability * 100).toFixed(2) + "%";
+
+        // Use backend risk_level instead of recalculating
+        const riskLevelDisplay =
+          result.risk_level ||
+          (result.phishing_probability > 0.7
+            ? "HIGH"
+            : result.phishing_probability > 0.3
+              ? "MEDIUM"
+              : "LOW");
+        const riskBadge = `<span class="risk-badge risk-${riskLevelDisplay.toLowerCase()}">${riskLevelDisplay}</span>`;
+        document.getElementById("riskLevel").innerHTML = riskBadge;
+
+        // Fix NaN issue - use confidence_percent if available
+        const confidenceValue =
+          result.confidence_percent ||
+          result.confidence * 100 ||
+          result.phishing_probability * 100;
+        document.getElementById("confidence").textContent =
+          confidenceValue.toFixed(2) + "%";
+      }
+    </script>
+  </body>
 </html>

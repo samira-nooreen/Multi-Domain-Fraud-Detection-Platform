@@ -11,23 +11,9 @@ function knowMore() {
 
 // Check if user is logged in before redirecting to detection modules
 function checkLoginAndRedirect(url) {
-  // Make an AJAX call to check if user is logged in
-  fetch('/api/status')
-    .then(response => response.json())
-    .then(data => {
-      if (data.logged_in) {
-        // User is logged in, go directly to the module
-        window.location.href = url;
-      } else {
-        // User is not logged in, redirect to login with next parameter
-        window.location.href = '/login?next=' + encodeURIComponent(url);
-      }
-    })
-    .catch(error => {
-      // If there's an error, default to login redirect
-      console.error('Error checking login status:', error);
-      window.location.href = '/login?next=' + encodeURIComponent(url);
-    });
+  // Let server-side auth guard decide whether to allow module access or redirect to login.
+  // This avoids client-side status checks becoming a single point of failure in production.
+  window.location.href = url;
 }
 
 // Update fraud stats view when clicking tabs

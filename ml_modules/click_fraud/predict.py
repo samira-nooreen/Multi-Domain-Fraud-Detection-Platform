@@ -194,9 +194,15 @@ class ClickFraudDetector:
         # --- USER AGENT CHANGES (col 4) ---
         if arr.shape[1] > 4:
             ua_changes = int(np.sum(arr[:, 4]))
-            if ua_changes > 0:
+            if ua_changes > 5:
                 score += 0.20
-                indicators.append(f"User agent changed ({ua_changes} time(s))")
+                indicators.append(f"Frequent user agent changes ({ua_changes} time(s))")
+            elif ua_changes > 1:
+                score += 0.10
+                indicators.append(f"Multiple user agent changes ({ua_changes} time(s))")
+            elif ua_changes > 0:
+                score += 0.05
+                indicators.append("Single user agent change detected")
 
         # --- VOLUME ---
         if n_clicks > 100:
@@ -224,6 +230,29 @@ class ClickFraudDetector:
                 score += 0.05
                 indicators.append(f"Elevated clicking activity")
 
+        # Guardrail: suspicious traffic should not be auto-marked CRITICAL unless it shows
+        # clear bot-level characteristics across multiple strong indicators.
+        avg_time_for_guard = float(np.mean(arr[:, 0])) if arr.shape[1] > 0 else 0.0
+        avg_velocity_for_guard = float(np.mean(arr[:, 7])) if arr.shape[1] > 7 else 0.0
+        ip_changes_for_guard = int(np.sum(arr[:, 3])) if arr.shape[1] > 3 else 0
+        ua_changes_for_guard = int(np.sum(arr[:, 4])) if arr.shape[1] > 4 else 0
+        avg_entropy_for_guard = float(np.mean(arr[:, 8])) if arr.shape[1] > 8 else 2.0
+        x_std_for_guard = float(np.std(arr[:, 1])) if arr.shape[1] > 1 else 0.0
+        y_std_for_guard = float(np.std(arr[:, 2])) if arr.shape[1] > 2 else 0.0
+
+        if (
+            30 <= n_clicks <= 150 and
+            avg_time_for_guard >= 0.45 and
+            avg_velocity_for_guard <= 100 and
+            ip_changes_for_guard <= 4 and
+            ua_changes_for_guard <= 2 and
+            avg_entropy_for_guard >= 0.0 and
+            (x_std_for_guard > 20 or y_std_for_guard > 20)
+        ):
+            if score > 0.48:
+                score = 0.48
+                indicators.append("Suspicious traffic pattern, but not strong enough for critical bot classification")
+
         # Cap and return
         prob = min(0.95, score)
         result = self._format_result(prob, 'Heuristic')
@@ -239,11 +268,11 @@ class ClickFraudDetector:
         elif prob > 0.5:
             risk_level = 'HIGH'
             is_fraud = True
-            recommendation = 'BLOCK - High fraud probability detected'
+            recommendation = 'STEP-UP VERIFICATION - High fraud probability detected'
         elif prob > 0.3:
             risk_level = 'MEDIUM'
             is_fraud = False
-            recommendation = 'MONITOR - Suspicious activity, flag for review'
+            recommendation = 'MONITOR - Unusual click behavior'
         elif prob > 0.15:
             risk_level = 'LOW'
             is_fraud = False

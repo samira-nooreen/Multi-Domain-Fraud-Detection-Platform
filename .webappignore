@@ -1,0 +1,43 @@
+# Exclude local environments and editor metadata
+
+.venv/
+env/
+venv/
+.vscode/
+.idea/
+
+# Exclude caches and compiled artifacts
+
+**pycache**/
+_.pyc
+_.pyo
+\*.pyd
+
+# Exclude logs and temp outputs
+
+logs/
+_.log
+debug_output_.txt
+dump_output*.txt
+app_startup*.txt
+
+# Exclude local backups and non-runtime assets
+
+data_backup/
+models_backup/
+_.zip
+_.tar.gz
+\*.7z
+
+# Exclude notebooks/check scripts/docs not needed at runtime
+
+check*\*.py
+fix*_.py
+debug\__.py
+demonstrate*\*.py
+create_test*_.py
+_.md
+
+# Keep runtime code, templates, static assets, db, and ml model files
+
+# (No broad excludes for .pkl/.db/.csv to avoid removing required files)
